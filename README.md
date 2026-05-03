@@ -1,0 +1,234 @@
+# adblock-easylist-detector
+
+基于 EasyList 规则反向探测 + CSS 诱饵元素双重检测的轻量 AdBlock 检测插件。
+
+## 工作原理
+
+### 🔥 双重检测机制
+
+1. **网络探测**：从 EasyList 主列表精选 10 条高命中率规则，生成对应测试资源 URL，尝试加载。若加载失败（超时/被拦截），则作为"存在 AdBlock"的证据。
+2. **诱饵元素检测**：创建带广告特征 class/id 的 DOM 元素插入页面，检查是否被 AdBlock 的 CSS 隐藏规则（`display:none` / `visibility:hidden` / 尺寸归零）隐藏。
+
+两种方式加权综合（网络 60% + 诱饵 40%），提高检测准确率。
+
+### 📋 EasyList 规则覆盖
+
+| 分类 | 规则数 | 说明 |
+|------|--------|------|
+| domain | 5 | 域名拦截（Google AdSense、DoubleClick、Amazon 等） |
+| path | 2 | 路径通配（ads.js、ad/banner/*） |
+| param | 1 | 查询参数拦截（ad_type=） |
+| third-party | 2 | 第三方广告（Taboola、Outbrain） |
+
+每条规则带有置信度权重（0.75~0.95），用于加权计算综合检测结果。
+
+## 安装
+
+```bash
+npm install adblock-easylist-detector
+```
+
+## 快速开始
+
+```typescript
+import { createDetector } from 'adblock-easylist-detector';
+
+// 创建检测器实例
+const detector = createDetector({
+  timeout: 3000,            // 单条资源超时 ms
+  confidenceThreshold: 0.5, // 置信度阈值
+  enableBait: true,         // 启用诱饵检测
+});
+
+// 注册回调
+detector.onDetect((result) => {
+  if (result.detected) {
+    console.log('检测到 AdBlock！置信度:', result.confidence);
+  }
+});
+
+// 执行检测
+const result = await detector.detect();
+console.log(result.detected);      // boolean
+console.log(result.confidence);    // 0~1
+console.log(result.blockedCount);  // 被拦截规则数
+console.log(result.baitHiddenCount); // 被隐藏诱饵数
+```
+
+## API
+
+### `createDetector(options?)`
+
+创建检测器实例，每个实例拥有独立的回调链和缓存。
+
+**参数：**
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `timeout` | `number` | `3000` | 单条资源加载超时（ms） |
+| `confidenceThreshold` | `number` | `0.5` | 判定 AdBlock 的置信度阈值（0~1） |
+| `cache` | `boolean` | `true` | 是否启用 sessionStorage 缓存（5 分钟） |
+| `enableBait` | `boolean` | `true` | 是否启用 CSS 诱饵元素检测 |
+| `baits` | `BaitConfig[]` | 内置 5 条 | 自定义诱饵配置 |
+| `baitTimeout` | `number` | `200` | 诱饵检测超时（ms） |
+| `category` | `string` | - | 仅测试指定分类的规则 |
+| `minConfidence` | `number` | - | 仅测试置信度 ≥ 此值的规则 |
+
+**返回：** `AdblockDetector` 实例
+
+### `AdblockDetector` 接口
+
+| 方法 | 说明 |
+|------|------|
+| `detect()` | 执行检测，返回 `Promise<DetectionResult>` |
+| `onDetect(fn)` | 注册持续回调 |
+| `onceDetect(fn)` | 注册一次性回调 |
+| `offDetect(fn)` | 移除回调 |
+| `clearCache()` | 清除 sessionStorage 缓存 |
+| `destroy()` | 销毁实例（清缓存 + 清回调） |
+| `options` | 当前配置（只读） |
+
+### `DetectionResult` 结构
+
+```typescript
+interface DetectionResult {
+  detected: boolean;       // 是否检测到 AdBlock
+  confidence: number;      // 综合置信度 0~1
+  blockedCount: number;    // 网络探测被拦截数
+  totalCount: number;      // 网络探测总规则数
+  details: SingleResult[]; // 网络探测明细
+  baitResults: BaitResult[]; // 诱饵检测明细
+  baitHiddenCount: number; // 诱饵被隐藏数
+  baitTotalCount: number;  // 诱饵总数
+  totalDuration: number;   // 总耗时 ms
+  fromCache: boolean;      // 是否命中缓存
+  timestamp: number;       // 检测时间戳
+}
+```
+
+### `getInstance(options?)`
+
+获取全局单例，适合简单场景。
+
+```typescript
+import { getInstance } from 'adblock-easylist-detector';
+const detector = getInstance();
+const result = await detector.detect();
+```
+
+## 高级用法
+
+### 仅测试特定分类
+
+```typescript
+const detector = createDetector({ category: 'domain' });
+// 只测试域名拦截类规则（5 条）
+```
+
+### 自定义诱饵
+
+```typescript
+const detector = createDetector({
+  baits: [
+    {
+      className: 'my-ad-class',
+      id: 'ad-slot-1',
+      confidence: 0.9,
+      description: '自定义广告位',
+    },
+  ],
+});
+```
+
+### 仅使用网络探测（不用诱饵）
+
+```typescript
+const detector = createDetector({ enableBait: false });
+```
+
+### UMD 方式引入
+
+```html
+<script src="dist/adblock-easylist-detector.umd.js"></script>
+<script>
+  var detector = AdblockEasylistDetector.createDetector();
+  detector.detect().then(function(result) {
+    console.log('AdBlock detected:', result.detected);
+  });
+</script>
+```
+
+## 构建产物
+
+| 文件 | 格式 | 说明 |
+|------|------|------|
+| `adblock-easylist-detector.esm.js` | ESM | ES Module，Tree-shakable |
+| `adblock-easylist-detector.umd.js` | UMD | 兼容 CommonJS / AMD / `<script>` |
+| `adblock-easylist-detector.esm.min.js` | ESM | 压缩版 |
+| `adblock-easylist-detector.umd.min.js` | UMD | 压缩版 |
+| `detector.esm.js` | ESM | 仅检测引擎模块 |
+| `resource-generator.esm.js` | ESM | 仅资源生成模块 |
+| `bait-detector.esm.js` | ESM | 仅诱饵检测模块 |
+| `callback.esm.js` | ESM | 仅回调管理模块 |
+
+## 技术细节
+
+### 网络探测策略
+
+- **script 标签**：最可靠，AdBlock 直接拦截脚本加载（`onerror` 触发）
+- **image 标签**：次可靠，图片请求拦截也常见
+- **fetch no-cors + Image 二次验证**：针对 xmlhttprequest 类型，fetch no-cors 可能返回 opaque response 导致误判，因此追加 Image 验证
+
+### 诱饵检测策略
+
+- 创建带广告特征 class/id 的 `<div>`，插入 DOM
+- 双重检测时机：`requestAnimationFrame` + `setTimeout(50ms)` 兜底（后台标签页 rAF 可能不触发）
+- 检查维度：`display:none`、`visibility:hidden`、`opacity:0`、尺寸归零、被从 DOM 移除
+- 检测完成后自动清理 DOM 元素
+
+### 缓存机制
+
+- 使用 `sessionStorage` 缓存检测结果
+- TTL：5 分钟
+- 多实例隔离：每个 `createDetector()` 实例缓存 key 包含唯一 ID
+
+### SSR 安全
+
+所有模块均包含 `typeof window/document` 检查，Node.js 环境下安全降级。
+
+## 开发
+
+```bash
+# 安装依赖
+npm install
+
+# 构建
+npm run build
+
+# 运行测试
+npm test
+
+# 监听模式测试
+npm run test:watch
+
+# 清理构建产物
+npm run clean
+```
+
+## 测试
+
+使用 Vitest + jsdom，35 条用例覆盖：
+
+- EasyList 规则完整性与分类覆盖
+- 资源 URL 生成与筛选
+- 回调管理（on/once/off/clear/多实例隔离/异常不传播）
+- 诱饵元素检测（DOM 插入/隐藏判定/自动清理）
+- 检测器集成（配置/阈值/缓存隔离）
+
+## 浏览器测试页面
+
+构建后打开 `test/index.html`（需本地服务器），可可视化查看检测结果。安装/关闭 AdBlock 后刷新对比效果。
+
+## License
+
+MIT
