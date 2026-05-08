@@ -25,7 +25,7 @@ Each rule carries a confidence weight (0.75–0.95) used in weighted result calc
 ## Installation
 
 ```bash
-npm install adblock-easylist-detector
+npm install -D adblock-easylist-detector
 ```
 
 ## Quick Start

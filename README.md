@@ -25,7 +25,7 @@
 ## 安装
 
 ```bash
-npm install adblock-easylist-detector
+npm install -D adblock-easylist-detector
 ```
 
 ## 快速开始
