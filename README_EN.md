@@ -1,34 +1,39 @@
 # adblock-easylist-detector
 
+<div align="center">
+
 **English** | [中文](README.md)
 
-A lightweight AdBlock detection plugin using dual detection: EasyList rule reverse-probing + CSS bait element checking.
+> A lightweight blocker detection plugin using dual detection: EasyList rule reverse-probing + CSS bait element checking. Detects not only AdBlock/AdBlock Plus, but also uBlock Origin, AdGuard, and any other EasyList-based ad/content blockers.
 
-## How It Works
+</div>
 
-### 🔥 Dual Detection Mechanism
+---
 
-1. **Network Probing**: Selects 10 high-hit-rate rules from the EasyList main list, generates corresponding test resource URLs, and attempts to load them. If loading fails (timeout/blocked), it serves as evidence of an AdBlocker.
-2. **Bait Element Detection**: Creates DOM elements with ad-specific class/id attributes, inserts them into the page, and checks whether they are hidden by AdBlock CSS rules (`display:none` / `visibility:hidden` / zero-size).
+## Features
 
-Both methods are combined with weighted scoring (network 60% + bait 40%) for improved accuracy.
+- **Dual Detection** — Network probing (EasyList reverse-probing) + CSS bait element detection with weighted scoring
+- **High-hit Rules** — Selects 10 high-hit-rate rules from the EasyList main list, covering domain, path, param, and third-party categories
+- **Weighted Scoring** — Network 60% + bait 40%, each rule carries a confidence weight (0.75–0.95)
+- **Multi-probe Strategy** — Script tags, image tags, fetch no-cors + Image secondary validation
+- **Auto Caching** — sessionStorage-based with 5-minute TTL and multi-instance isolation
+- **SSR Safe** — All modules include `typeof window/document` checks and gracefully degrade in Node.js
+- **Zero Dependencies** — Pure frontend, no extra dependencies needed
+- **Tree-shakable** — ESM modular exports, supports on-demand imports
 
-### 📋 EasyList Rule Coverage
+---
 
-| Category | Rules | Description |
-|----------|-------|-------------|
-| domain | 5 | Domain blocking (Google AdSense, DoubleClick, Amazon, etc.) |
-| path | 2 | Path wildcards (ads.js, ad/banner/*) |
-| param | 1 | Query parameter blocking (ad_type=) |
-| third-party | 2 | Third-party ads (Taboola, Outbrain) |
-
-Each rule carries a confidence weight (0.75–0.95) used in weighted result calculation.
-
-## Installation
+## Install
 
 ```bash
 npm install -D adblock-easylist-detector
+# or
+pnpm add -D adblock-easylist-detector
+# or
+yarn add -D adblock-easylist-detector
 ```
+
+---
 
 ## Quick Start
 
@@ -56,6 +61,8 @@ console.log(result.confidence);    // 0~1
 console.log(result.blockedCount);  // Number of blocked rules
 console.log(result.baitHiddenCount); // Number of hidden baits
 ```
+
+---
 
 ## API
 
@@ -118,6 +125,8 @@ const detector = getInstance();
 const result = await detector.detect();
 ```
 
+---
+
 ## Advanced Usage
 
 ### Test Only a Specific Category
@@ -160,6 +169,8 @@ const detector = createDetector({ enableBait: false });
 </script>
 ```
 
+---
+
 ## Build Artifacts
 
 | File | Format | Description |
@@ -173,7 +184,27 @@ const detector = createDetector({ enableBait: false });
 | `bait-detector.esm.js` | ESM | Bait detector only |
 | `callback.esm.js` | ESM | Callback manager only |
 
+---
+
 ## Technical Details
+
+### Dual Detection Mechanism
+
+1. **Network Probing**: Selects 10 high-hit-rate rules from the EasyList main list, generates corresponding test resource URLs, and attempts to load them. If loading fails (timeout/blocked), it serves as evidence of an AdBlocker.
+2. **Bait Element Detection**: Creates DOM elements with ad-specific class/id attributes, inserts them into the page, and checks whether they are hidden by AdBlock CSS rules (`display:none` / `visibility:hidden` / zero-size).
+
+Both methods are combined with weighted scoring (network 60% + bait 40%) for improved accuracy.
+
+### EasyList Rule Coverage
+
+| Category | Rules | Description |
+|----------|-------|-------------|
+| domain | 5 | Domain blocking (Google AdSense, DoubleClick, Amazon, etc.) |
+| path | 2 | Path wildcards (ads.js, ad/banner/*) |
+| param | 1 | Query parameter blocking (ad_type=) |
+| third-party | 2 | Third-party ads (Taboola, Outbrain) |
+
+Each rule carries a confidence weight (0.75–0.95) used in weighted result calculation.
 
 ### Network Probing Strategy
 
@@ -198,38 +229,7 @@ const detector = createDetector({ enableBait: false });
 
 All modules include `typeof window/document` checks and gracefully degrade in Node.js environments.
 
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run tests
-npm test
-
-# Watch mode tests
-npm run test:watch
-
-# Clean build artifacts
-npm run clean
-```
-
-## Testing
-
-Using Vitest + jsdom with 35 test cases covering:
-
-- EasyList rule completeness and category coverage
-- Resource URL generation and filtering
-- Callback management (on/once/off/clear/multi-instance isolation/error isolation)
-- Bait element detection (DOM insertion/hidden detection/auto-cleanup)
-- Detector integration (configuration/threshold/cache isolation)
-
-## Browser Test Page
-
-After building, open `test/index.html` (requires a local server) for a visual detection result dashboard. Toggle AdBlock on/off and refresh to compare.
+---
 
 ## License
 

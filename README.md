@@ -1,34 +1,39 @@
 # adblock-easylist-detector
 
+<div align="center">
+
 [English](README_EN.md) | **中文**
 
-基于 EasyList 规则反向探测 + CSS 诱饵元素双重检测的轻量 AdBlock 检测插件。
+> 基于 EasyList 规则反向探测 + CSS 诱饵元素双重检测的轻量级拦截器检测插件。不仅可检测 AdBlock/AdBlock Plus，还能识别 uBlock Origin、AdGuard 等所有基于 EasyList 规则的广告/内容拦截器。
 
-## 工作原理
+</div>
 
-### 🔥 双重检测机制
+---
 
-1. **网络探测**：从 EasyList 主列表精选 10 条高命中率规则，生成对应测试资源 URL，尝试加载。若加载失败（超时/被拦截），则作为"存在 AdBlock"的证据。
-2. **诱饵元素检测**：创建带广告特征 class/id 的 DOM 元素插入页面，检查是否被 AdBlock 的 CSS 隐藏规则（`display:none` / `visibility:hidden` / 尺寸归零）隐藏。
+## 功能特点
 
-两种方式加权综合（网络 60% + 诱饵 40%），提高检测准确率。
+- **双重检测机制** — 网络探测（EasyList 规则反向探测）+ CSS 诱饵元素检测，加权综合评分
+- **高命中率规则** — 从 EasyList 主列表精选 10 条高命中率规则，覆盖 domain、path、param、third-party 四大分类
+- **智能加权评分** — 网络 60% + 诱饵 40%，每条规则带有置信度权重（0.75~0.95）
+- **多探测策略** — script 标签、image 标签、fetch no-cors + Image 二次验证
+- **自动缓存** — 基于 sessionStorage，TTL 5 分钟，多实例隔离
+- **SSR 安全** — 所有模块包含 `typeof window/document` 检查，Node.js 环境下安全降级
+- **零依赖** — 纯前端运行，无需额外依赖
+- **Tree-shakable** — ESM 模块化导出，支持按需引入
 
-### 📋 EasyList 规则覆盖
-
-| 分类 | 规则数 | 说明 |
-|------|--------|------|
-| domain | 5 | 域名拦截（Google AdSense、DoubleClick、Amazon 等） |
-| path | 2 | 路径通配（ads.js、ad/banner/*） |
-| param | 1 | 查询参数拦截（ad_type=） |
-| third-party | 2 | 第三方广告（Taboola、Outbrain） |
-
-每条规则带有置信度权重（0.75~0.95），用于加权计算综合检测结果。
+---
 
 ## 安装
 
 ```bash
 npm install -D adblock-easylist-detector
+# 或
+pnpm add -D adblock-easylist-detector
+# 或
+yarn add -D adblock-easylist-detector
 ```
+
+---
 
 ## 快速开始
 
@@ -56,6 +61,8 @@ console.log(result.confidence);    // 0~1
 console.log(result.blockedCount);  // 被拦截规则数
 console.log(result.baitHiddenCount); // 被隐藏诱饵数
 ```
+
+---
 
 ## API
 
@@ -118,6 +125,8 @@ const detector = getInstance();
 const result = await detector.detect();
 ```
 
+---
+
 ## 高级用法
 
 ### 仅测试特定分类
@@ -160,6 +169,8 @@ const detector = createDetector({ enableBait: false });
 </script>
 ```
 
+---
+
 ## 构建产物
 
 | 文件 | 格式 | 说明 |
@@ -173,7 +184,27 @@ const detector = createDetector({ enableBait: false });
 | `bait-detector.esm.js` | ESM | 仅诱饵检测模块 |
 | `callback.esm.js` | ESM | 仅回调管理模块 |
 
+---
+
 ## 技术细节
+
+### 双重检测机制
+
+1. **网络探测**：从 EasyList 主列表精选 10 条高命中率规则，生成对应测试资源 URL，尝试加载。若加载失败（超时/被拦截），则作为"存在 AdBlock"的证据。
+2. **诱饵元素检测**：创建带广告特征 class/id 的 DOM 元素插入页面，检查是否被 AdBlock 的 CSS 隐藏规则（`display:none` / `visibility:hidden` / 尺寸归零）隐藏。
+
+两种方式加权综合（网络 60% + 诱饵 40%），提高检测准确率。
+
+### EasyList 规则覆盖
+
+| 分类 | 规则数 | 说明 |
+|------|--------|------|
+| domain | 5 | 域名拦截（Google AdSense、DoubleClick、Amazon 等） |
+| path | 2 | 路径通配（ads.js、ad/banner/*） |
+| param | 1 | 查询参数拦截（ad_type=） |
+| third-party | 2 | 第三方广告（Taboola、Outbrain） |
+
+每条规则带有置信度权重（0.75~0.95），用于加权计算综合检测结果。
 
 ### 网络探测策略
 
@@ -198,38 +229,7 @@ const detector = createDetector({ enableBait: false });
 
 所有模块均包含 `typeof window/document` 检查，Node.js 环境下安全降级。
 
-## 开发
-
-```bash
-# 安装依赖
-npm install
-
-# 构建
-npm run build
-
-# 运行测试
-npm test
-
-# 监听模式测试
-npm run test:watch
-
-# 清理构建产物
-npm run clean
-```
-
-## 测试
-
-使用 Vitest + jsdom，35 条用例覆盖：
-
-- EasyList 规则完整性与分类覆盖
-- 资源 URL 生成与筛选
-- 回调管理（on/once/off/clear/多实例隔离/异常不传播）
-- 诱饵元素检测（DOM 插入/隐藏判定/自动清理）
-- 检测器集成（配置/阈值/缓存隔离）
-
-## 浏览器测试页面
-
-构建后打开 `test/index.html`（需本地服务器），可可视化查看检测结果。安装/关闭 AdBlock 后刷新对比效果。
+---
 
 ## License
 
