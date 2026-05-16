@@ -42,7 +42,7 @@ yarn add -D adblock-easylist-detector
 Registering a callback **auto-triggers the first detection** — no need to call `detect()` manually:
 
 ```typescript
-import { createDetector } from 'adblock-easylist-detector';
+import { createDetector, type DetectionResult } from 'adblock-easylist-detector';
 
 const detector = createDetector({
   timeout: 3000,
@@ -51,7 +51,7 @@ const detector = createDetector({
 });
 
 // Register callback — first detection auto-triggers, no manual detect() needed
-detector.onDetect((result) => {
+detector.onDetect((result: DetectionResult) => {
   if (result.detected) {
     console.log('Blocker detected! Confidence:', result.confidence);
   }

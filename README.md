@@ -42,7 +42,7 @@ yarn add -D adblock-easylist-detector
 注册回调后**自动触发首次检测**，无需手动调用 `detect()`：
 
 ```typescript
-import { createDetector } from 'adblock-easylist-detector';
+import { createDetector, type DetectionResult } from 'adblock-easylist-detector';
 
 const detector = createDetector({
   timeout: 3000,
@@ -51,7 +51,7 @@ const detector = createDetector({
 });
 
 // 注册回调后自动触发首次检测，无需手动 detect()
-detector.onDetect((result) => {
+detector.onDetect((result: DetectionResult) => {
   if (result.detected) {
     console.log('检测到拦截器！置信度:', result.confidence);
   }
