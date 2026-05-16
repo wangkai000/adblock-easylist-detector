@@ -196,6 +196,18 @@ const detector = createDetector({ enableBait: false });
 </script>
 ```
 
+### CommonJS 方式引入
+
+```javascript
+const { createDetector } = require('adblock-easylist-detector');
+
+const detector = createDetector({ timeout: 3000 });
+detector.onDetect((result) => {
+  console.log('AdBlock detected:', result.detected);
+});
+detector.detect();
+```
+
 ---
 
 ## 构建产物
@@ -203,13 +215,19 @@ const detector = createDetector({ enableBait: false });
 | 文件 | 格式 | 说明 |
 |------|------|------|
 | `adblock-easylist-detector.esm.js` | ESM | ES Module，Tree-shakable |
-| `adblock-easylist-detector.umd.js` | UMD | 兼容 CommonJS / AMD / `<script>` |
+| `adblock-easylist-detector.cjs.js` | CJS | CommonJS，`require()` 引入 |
+| `adblock-easylist-detector.umd.js` | UMD | 兼容 CJS / AMD / `<script>` |
 | `adblock-easylist-detector.esm.min.js` | ESM | 压缩版 |
+| `adblock-easylist-detector.cjs.min.js` | CJS | 压缩版 |
 | `adblock-easylist-detector.umd.min.js` | UMD | 压缩版 |
 | `detector.esm.js` | ESM | 仅检测引擎模块 |
+| `detector.cjs.js` | CJS | 仅检测引擎模块 |
 | `resource-generator.esm.js` | ESM | 仅资源生成模块 |
+| `resource-generator.cjs.js` | CJS | 仅资源生成模块 |
 | `bait-detector.esm.js` | ESM | 仅诱饵检测模块 |
+| `bait-detector.cjs.js` | CJS | 仅诱饵检测模块 |
 | `callback.esm.js` | ESM | 仅回调管理模块 |
+| `callback.cjs.js` | CJS | 仅回调管理模块 |
 
 ---
 

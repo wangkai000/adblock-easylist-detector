@@ -196,6 +196,18 @@ const detector = createDetector({ enableBait: false });
 </script>
 ```
 
+### CommonJS Usage
+
+```javascript
+const { createDetector } = require('adblock-easylist-detector');
+
+const detector = createDetector({ timeout: 3000 });
+detector.onDetect((result) => {
+  console.log('AdBlock detected:', result.detected);
+});
+detector.detect();
+```
+
 ---
 
 ## Build Artifacts
@@ -203,13 +215,19 @@ const detector = createDetector({ enableBait: false });
 | File | Format | Description |
 |------|--------|-------------|
 | `adblock-easylist-detector.esm.js` | ESM | ES Module, Tree-shakable |
-| `adblock-easylist-detector.umd.js` | UMD | CommonJS / AMD / `<script>` compatible |
+| `adblock-easylist-detector.cjs.js` | CJS | CommonJS, `require()` import |
+| `adblock-easylist-detector.umd.js` | UMD | CJS / AMD / `<script>` compatible |
 | `adblock-easylist-detector.esm.min.js` | ESM | Minified |
+| `adblock-easylist-detector.cjs.min.js` | CJS | Minified |
 | `adblock-easylist-detector.umd.min.js` | UMD | Minified |
 | `detector.esm.js` | ESM | Detection engine only |
+| `detector.cjs.js` | CJS | Detection engine only |
 | `resource-generator.esm.js` | ESM | Resource generator only |
+| `resource-generator.cjs.js` | CJS | Resource generator only |
 | `bait-detector.esm.js` | ESM | Bait detector only |
+| `bait-detector.cjs.js` | CJS | Bait detector only |
 | `callback.esm.js` | ESM | Callback manager only |
+| `callback.cjs.js` | CJS | Callback manager only |
 
 ---
 

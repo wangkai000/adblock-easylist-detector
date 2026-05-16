@@ -2,30 +2,31 @@
   "name": "adblock-easylist-detector",
   "version": "1.0.0",
   "description": "Detect AdBlock via EasyList rule reverse-probing + CSS bait element dual detection",
-  "main": "dist/adblock-easylist-detector.umd.js",
+  "main": "dist/adblock-easylist-detector.cjs.js",
   "module": "dist/adblock-easylist-detector.esm.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/adblock-easylist-detector.esm.js",
-      "require": "./dist/adblock-easylist-detector.umd.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/adblock-easylist-detector.cjs.js",
+      "default": "./dist/adblock-easylist-detector.cjs.js"
     },
     "./detector": {
       "import": "./dist/detector.esm.js",
-      "require": "./dist/detector.umd.js"
+      "require": "./dist/detector.cjs.js"
     },
     "./resource-generator": {
       "import": "./dist/resource-generator.esm.js",
-      "require": "./dist/resource-generator.umd.js"
+      "require": "./dist/resource-generator.cjs.js"
     },
     "./bait-detector": {
       "import": "./dist/bait-detector.esm.js",
-      "require": "./dist/bait-detector.umd.js"
+      "require": "./dist/bait-detector.cjs.js"
     },
     "./callback": {
       "import": "./dist/callback.esm.js",
-      "require": "./dist/callback.umd.js"
+      "require": "./dist/callback.cjs.js"
     }
   },
   "sideEffects": false,
