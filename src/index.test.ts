@@ -60,13 +60,17 @@ describe('createDetector', () => {
     const d = createDetector({ timeout: 500, enableBait: false });
     const onFn = vi.fn();
     const onceFn = vi.fn();
+
+    // onDetect 注册后自动触发首次检测
     d.onDetect(onFn);
     d.onceDetect(onceFn);
 
-    await d.detect();
-    expect(onFn).toHaveBeenCalledTimes(1);
-    expect(onceFn).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(onFn).toHaveBeenCalledTimes(1);
+      expect(onceFn).toHaveBeenCalledTimes(1);
+    });
 
+    // 手动再次检测
     await d.detect();
     expect(onFn).toHaveBeenCalledTimes(2);
     expect(onceFn).toHaveBeenCalledTimes(1); // once 只触发一次
@@ -76,9 +80,11 @@ describe('createDetector', () => {
     const d = createDetector({ timeout: 500, enableBait: false });
     const fn = vi.fn();
     d.onDetect(fn);
+    // 等待自动触发完成
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(1));
     d.offDetect(fn);
     await d.detect();
-    expect(fn).not.toHaveBeenCalled();
+    expect(fn).toHaveBeenCalledTimes(1); // 不再被调用
   });
 
   it('clearCache 不抛错', () => {
@@ -88,11 +94,23 @@ describe('createDetector', () => {
 
   it('destroy 清除回调+缓存，detect 抛错', async () => {
     const d = createDetector({ timeout: 500, enableBait: false });
-    const fn = vi.fn();
-    d.onDetect(fn);
     d.destroy();
     expect(d.destroyed).toBe(true);
     await expect(d.detect()).rejects.toThrow('Instance has been destroyed');
+  });
+
+  it('onDetect 注册后自动触发检测', async () => {
+    const d = createDetector({ timeout: 500, enableBait: false });
+    const fn = vi.fn();
+    d.onDetect(fn);
+    // 不需要手动调 detect()，回调应自动被触发
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(1));
+  }, 10000);
+
+  it('并发调用 detect 不重复执行', async () => {
+    const d = createDetector({ timeout: 500, enableBait: false });
+    const [r1, r2] = await Promise.all([d.detect(), d.detect()]);
+    expect(r1).toBe(r2); // 同一次检测结果
   });
 
   it('多实例缓存隔离', async () => {

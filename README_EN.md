@@ -39,6 +39,8 @@ yarn add -D adblock-easylist-detector
 
 ### Callback Style (Recommended)
 
+Registering a callback **auto-triggers the first detection** — no need to call `detect()` manually:
+
 ```typescript
 import { createDetector } from 'adblock-easylist-detector';
 
@@ -48,15 +50,15 @@ const detector = createDetector({
   enableBait: true,
 });
 
-// Register callback — fires automatically when detection completes
+// Register callback — first detection auto-triggers, no manual detect() needed
 detector.onDetect((result) => {
   if (result.detected) {
     console.log('Blocker detected! Confidence:', result.confidence);
   }
 });
 
-// Start detection (non-blocking)
-detector.detect();
+// Run another detection anytime
+const result = await detector.detect();
 ```
 
 ### Promise / await Style
@@ -70,6 +72,9 @@ console.log(result.detected);        // boolean
 console.log(result.confidence);      // 0~1
 console.log(result.blockedCount);    // Number of blocked rules
 console.log(result.baitHiddenCount); // Number of hidden baits
+
+// Run another detection anytime
+const result2 = await detector.detect();
 ```
 
 ---
@@ -100,8 +105,8 @@ Creates a detector instance with independent callback chain and cache.
 | Method / Property | Description |
 |--------|-------------|
 | `detect()` | Run detection, returns `Promise<DetectionResult>` |
-| `onDetect(fn)` | Register a persistent callback |
-| `onceDetect(fn)` | Register a one-time callback |
+| `onDetect(fn)` | Register a persistent callback; **auto-triggers first detection** on register |
+| `onceDetect(fn)` | Register a one-time callback; **auto-triggers first detection** on register |
 | `offDetect(fn)` | Remove a callback |
 | `clearCache()` | Clear sessionStorage cache |
 | `destroy()` | Destroy instance (clear cache + callbacks); `detect()` will throw after destroy |

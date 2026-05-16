@@ -39,6 +39,8 @@ yarn add -D adblock-easylist-detector
 
 ### 回调方式（推荐）
 
+注册回调后**自动触发首次检测**，无需手动调用 `detect()`：
+
 ```typescript
 import { createDetector } from 'adblock-easylist-detector';
 
@@ -48,15 +50,15 @@ const detector = createDetector({
   enableBait: true,
 });
 
-// 注册回调，检测完成后自动触发
+// 注册回调后自动触发首次检测，无需手动 detect()
 detector.onDetect((result) => {
   if (result.detected) {
     console.log('检测到拦截器！置信度:', result.confidence);
   }
 });
 
-// 发起检测（不阻塞主线程）
-detector.detect();
+// 如需再次检测，随时手动调用
+const result = await detector.detect();
 ```
 
 ### Promise / await 方式
@@ -70,6 +72,9 @@ console.log(result.detected);        // boolean
 console.log(result.confidence);      // 0~1
 console.log(result.blockedCount);    // 被拦截规则数
 console.log(result.baitHiddenCount); // 被隐藏诱饵数
+
+// 也可随时再次检测
+const result2 = await detector.detect();
 ```
 
 ---
@@ -100,8 +105,8 @@ console.log(result.baitHiddenCount); // 被隐藏诱饵数
 | 方法/属性 | 说明 |
 |------|------|
 | `detect()` | 执行检测，返回 `Promise<DetectionResult>` |
-| `onDetect(fn)` | 注册持续回调 |
-| `onceDetect(fn)` | 注册一次性回调 |
+| `onDetect(fn)` | 注册持续回调，注册后**自动触发首次检测** |
+| `onceDetect(fn)` | 注册一次性回调，注册后**自动触发首次检测** |
 | `offDetect(fn)` | 移除回调 |
 | `clearCache()` | 清除 sessionStorage 缓存 |
 | `destroy()` | 销毁实例（清缓存 + 清回调），销毁后 `detect()` 将抛错 |

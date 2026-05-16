@@ -6,7 +6,9 @@
  * Usage:
  *   import { createDetector } from 'adblock-easylist-detector';
  *   const detector = createDetector({ timeout: 3000, confidenceThreshold: 0.5 });
+ *   // 注册回调后自动触发首次检测
  *   detector.onDetect(result => console.log(result));
+ *   // 手动再次检测
  *   const result = await detector.detect();
  */
 
@@ -46,11 +48,11 @@ export interface DetectorOptions {
 /* ── Detector 实例 ── */
 
 export interface AdblockDetector {
-  /** 执行检测，返回 Promise<DetectionResult> */
+  /** 执行检测，返回 Promise<DetectionResult>（手动触发） */
   detect(): Promise<DetectionResult>;
-  /** 注册持续回调 */
+  /** 注册持续回调，注册后自动触发首次检测 */
   onDetect(fn: CallbackFn): void;
-  /** 注册一次性回调 */
+  /** 注册一次性回调，注册后自动触发首次检测 */
   onceDetect(fn: CallbackFn): void;
   /** 移除回调 */
   offDetect(fn: CallbackFn): void;
@@ -72,6 +74,7 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
   const callbacks = new CallbackManager();
   const _id = `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   let _destroyed = false;
+  let _pendingDetect: Promise<DetectionResult> | null = null;
 
   const opts: AdblockDetector['options'] = {
     timeout: options.timeout ?? 3000,
@@ -84,6 +87,47 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
     baitTimeout: options.baitTimeout ?? 200,
   };
 
+  function runDetect(): Promise<DetectionResult> {
+    if (_pendingDetect) return _pendingDetect;
+
+    _pendingDetect = (async () => {
+      try {
+        let resources;
+        if (opts.category) {
+          resources = generateByCategory(opts.category);
+        } else if (opts.minConfidence !== undefined) {
+          resources = generateByConfidence(opts.minConfidence);
+        } else {
+          resources = generateAllResources();
+        }
+
+        const result = await detect(resources, opts.timeout, opts.cache, {
+          enableBait: opts.enableBait,
+          baits: opts.baits,
+          baitTimeout: opts.baitTimeout,
+          instanceId: _id,
+        });
+
+        // 根据阈值覆盖 detected 字段
+        result.detected = result.confidence >= opts.confidenceThreshold;
+
+        // 触发回调
+        callbacks.emit(result);
+
+        return result;
+      } finally {
+        _pendingDetect = null;
+      }
+    })();
+
+    return _pendingDetect;
+  }
+
+  function scheduleAutoDetect(): void {
+    if (_destroyed || _pendingDetect) return;
+    runDetect();
+  }
+
   return {
     get options() { return opts; },
     get destroyed() { return _destroyed; },
@@ -92,47 +136,28 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
       if (_destroyed) {
         throw new Error('[AdblockDetector] Instance has been destroyed');
       }
-
-      let resources;
-      if (opts.category) {
-        resources = generateByCategory(opts.category);
-      } else if (opts.minConfidence !== undefined) {
-        resources = generateByConfidence(opts.minConfidence);
-      } else {
-        resources = generateAllResources();
-      }
-
-      const result = await detect(resources, opts.timeout, opts.cache, {
-        enableBait: opts.enableBait,
-        baits: opts.baits,
-        baitTimeout: opts.baitTimeout,
-        instanceId: _id,
-      });
-
-      // 根据阈值覆盖 detected 字段
-      result.detected = result.confidence >= opts.confidenceThreshold;
-
-      // 触发回调
-      callbacks.emit(result);
-
-      return result;
+      return runDetect();
     },
 
     onDetect(fn) {
       if (_destroyed) return;
       callbacks.on(fn);
+      scheduleAutoDetect();
     },
     onceDetect(fn) {
       if (_destroyed) return;
       callbacks.once(fn);
+      scheduleAutoDetect();
     },
     offDetect(fn) { callbacks.off(fn); },
+
     clearCache() { clearCacheById(_id); },
 
     destroy() {
       _destroyed = true;
       clearCacheById(_id);
       callbacks.clear();
+      _pendingDetect = null;
     },
   };
 }
