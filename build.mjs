@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import { rmSync } from 'fs';
 
 const TEMP = '.temp';
+let hasError = false;
 
 // Step 1: tsc compile
 console.log('📝 Compiling TypeScript...');
@@ -69,6 +70,7 @@ async function build() {
       }
       await bundle.close();
     } catch (e) {
+      hasError = true;
       console.error(`  ❌ Error: ${e.message}`);
     }
   }
@@ -86,6 +88,7 @@ async function build() {
     console.log('  → dist/adblock-easylist-detector.umd.min.js');
     await bundle.close();
   } catch (e) {
+    hasError = true;
     console.error(`  ❌ Minify error: ${e.message}`);
   }
 
@@ -93,6 +96,11 @@ async function build() {
   console.log('\n🧹 Cleaning temp files...');
   rmSync(TEMP, { recursive: true, force: true });
   console.log('✅ Build complete!');
+
+  if (hasError) {
+    console.error('\n❌ Build completed with errors!');
+    process.exit(1);
+  }
 }
 
 build();

@@ -5,6 +5,30 @@
   "main": "dist/adblock-easylist-detector.umd.js",
   "module": "dist/adblock-easylist-detector.esm.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/adblock-easylist-detector.esm.js",
+      "require": "./dist/adblock-easylist-detector.umd.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./detector": {
+      "import": "./dist/detector.esm.js",
+      "require": "./dist/detector.umd.js"
+    },
+    "./resource-generator": {
+      "import": "./dist/resource-generator.esm.js",
+      "require": "./dist/resource-generator.umd.js"
+    },
+    "./bait-detector": {
+      "import": "./dist/bait-detector.esm.js",
+      "require": "./dist/bait-detector.umd.js"
+    },
+    "./callback": {
+      "import": "./dist/callback.esm.js",
+      "require": "./dist/callback.umd.js"
+    }
+  },
+  "sideEffects": false,
   "files": [
     "dist"
   ],
@@ -25,10 +49,10 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.6",
-    "jsdom": "^29.1.1",
+    "happy-dom": "^20.9.0",
     "rollup": "^4.18.0",
     "tslib": "^2.6.3",
-    "vitest": "^3.1.4",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "vitest": "^3.1.4"
   }
 }

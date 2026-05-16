@@ -86,13 +86,13 @@ describe('createDetector', () => {
     expect(() => d.clearCache()).not.toThrow();
   });
 
-  it('destroy 清除回调+缓存', async () => {
+  it('destroy 清除回调+缓存，detect 抛错', async () => {
     const d = createDetector({ timeout: 500, enableBait: false });
     const fn = vi.fn();
     d.onDetect(fn);
     d.destroy();
-    await d.detect();
-    // destroy 后回调已清空，fn 不应被触发
+    expect(d.destroyed).toBe(true);
+    await expect(d.detect()).rejects.toThrow('Instance has been destroyed');
   });
 
   it('多实例缓存隔离', async () => {

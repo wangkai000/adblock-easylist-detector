@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**English** | [中文](README.md)
+**English** | [中文](https://github.com/wangkai000/adblock-easylist-detector/blob/main/README.md)
 
 > A lightweight blocker detection plugin using dual detection: EasyList rule reverse-probing + CSS bait element checking. Detects not only AdBlock/AdBlock Plus, but also uBlock Origin, AdGuard, and any other EasyList-based ad/content blockers.
 
@@ -37,28 +37,38 @@ yarn add -D adblock-easylist-detector
 
 ## Quick Start
 
+### Callback Style (Recommended)
+
 ```typescript
 import { createDetector } from 'adblock-easylist-detector';
 
-// Create a detector instance
 const detector = createDetector({
-  timeout: 3000,            // Per-resource timeout (ms)
-  confidenceThreshold: 0.5, // Confidence threshold
-  enableBait: true,         // Enable bait detection
+  timeout: 3000,
+  confidenceThreshold: 0.5,
+  enableBait: true,
 });
 
-// Register callback
+// Register callback — fires automatically when detection completes
 detector.onDetect((result) => {
   if (result.detected) {
-    console.log('AdBlock detected! Confidence:', result.confidence);
+    console.log('Blocker detected! Confidence:', result.confidence);
   }
 });
 
-// Run detection
+// Start detection (non-blocking)
+detector.detect();
+```
+
+### Promise / await Style
+
+```typescript
+const detector = createDetector({ timeout: 3000 });
+
+// await only suspends the current async function — it does NOT block the page
 const result = await detector.detect();
-console.log(result.detected);      // boolean
-console.log(result.confidence);    // 0~1
-console.log(result.blockedCount);  // Number of blocked rules
+console.log(result.detected);        // boolean
+console.log(result.confidence);      // 0~1
+console.log(result.blockedCount);    // Number of blocked rules
 console.log(result.baitHiddenCount); // Number of hidden baits
 ```
 
@@ -80,21 +90,22 @@ Creates a detector instance with independent callback chain and cache.
 | `enableBait` | `boolean` | `true` | Enable CSS bait element detection |
 | `baits` | `BaitConfig[]` | 5 built-in | Custom bait configurations |
 | `baitTimeout` | `number` | `200` | Bait detection timeout (ms) |
-| `category` | `string` | - | Test only rules of a specific category |
+| `category` | `'domain' \| 'path' \| 'param' \| 'third-party'` | - | Test only rules of a specific category |
 | `minConfidence` | `number` | - | Test only rules with confidence ≥ this value |
 
 **Returns:** `AdblockDetector` instance
 
 ### `AdblockDetector` Interface
 
-| Method | Description |
+| Method / Property | Description |
 |--------|-------------|
 | `detect()` | Run detection, returns `Promise<DetectionResult>` |
 | `onDetect(fn)` | Register a persistent callback |
 | `onceDetect(fn)` | Register a one-time callback |
 | `offDetect(fn)` | Remove a callback |
 | `clearCache()` | Clear sessionStorage cache |
-| `destroy()` | Destroy instance (clear cache + callbacks) |
+| `destroy()` | Destroy instance (clear cache + callbacks); `detect()` will throw after destroy |
+| `destroyed` | `boolean`, whether the instance has been destroyed (read-only) |
 | `options` | Current configuration (read-only) |
 
 ### `DetectionResult` Structure
@@ -113,6 +124,22 @@ interface DetectionResult {
   fromCache: boolean;      // Whether result came from cache
   timestamp: number;       // Detection timestamp
 }
+```
+
+### Exported TypeScript Types
+
+```typescript
+import type {
+  DetectionResult,       // Detection result
+  SingleResult,          // Single rule probe result
+  DetectorOptions,       // createDetector options
+  AdblockDetector,       // Detector instance interface
+  CallbackFn,            // Callback function type
+  TestResource,          // Test resource
+  EasyListRule,          // EasyList rule definition
+  BaitConfig,            // Bait configuration
+  BaitResult,            // Bait detection result
+} from 'adblock-easylist-detector';
 ```
 
 ### `getInstance(options?)`

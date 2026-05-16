@@ -49,7 +49,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.88,
     description: '通用 ads.js 广告脚本',
-    urlTemplate: '/ads.js?cb={RAND}',
+    urlTemplate: 'https://pagead2.googlesyndication.com/ads.js?cb={RAND}',
     resourceType: 'script',
   },
   {
@@ -73,7 +73,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.85,
     description: '通用广告 banner 图片路径',
-    urlTemplate: '/ad/banner/728x90.jpg?z={RAND}',
+    urlTemplate: 'https://ad.doubleclick.net/ad/banner/728x90.jpg?z={RAND}',
     resourceType: 'image',
   },
   {
@@ -97,7 +97,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'param',
     confidence: 0.75,
     description: '查询参数 ad_type 拦截',
-    urlTemplate: '/api/v1/feed?ad_type=banner&v={RAND}',
+    urlTemplate: 'https://pagead2.googlesyndication.com/pagead/ads?ad_type=banner&v={RAND}',
     resourceType: 'xmlhttprequest',
   },
   {

@@ -49,17 +49,12 @@ export interface DetectionResult {
 
 const CACHE_KEY_PREFIX = '__aed_cache_';
 const CACHE_TTL = 5 * 60 * 1000;
+const NET_WEIGHT = 0.6;
+const BAIT_WEIGHT = 0.4;
 
 /** 生成实例级缓存 key，避免多实例冲突 */
 function getCacheKey(instanceId: string): string {
   return `${CACHE_KEY_PREFIX}${instanceId}`;
-}
-
-let _instanceId = 'default';
-
-/** 设置缓存实例标识（由 createDetector 调用） */
-export function setCacheInstanceId(id: string): void {
-  _instanceId = id;
 }
 
 interface CacheEntry {
@@ -67,14 +62,15 @@ interface CacheEntry {
   savedAt: number;
 }
 
-function readCache(): DetectionResult | null {
+function readCache(instanceId: string): DetectionResult | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    const raw = sessionStorage.getItem(getCacheKey(_instanceId));
+    const key = getCacheKey(instanceId);
+    const raw = sessionStorage.getItem(key);
     if (!raw) return null;
     const entry: CacheEntry = JSON.parse(raw);
     if (Date.now() - entry.savedAt > CACHE_TTL) {
-      sessionStorage.removeItem(getCacheKey(_instanceId));
+      sessionStorage.removeItem(key);
       return null;
     }
     return { ...entry.result, fromCache: true };
@@ -83,18 +79,19 @@ function readCache(): DetectionResult | null {
   }
 }
 
-function writeCache(result: DetectionResult): void {
+function writeCache(instanceId: string, result: DetectionResult): void {
   try {
     if (typeof sessionStorage === 'undefined') return;
+    const key = getCacheKey(instanceId);
     const entry: CacheEntry = { result: { ...result, fromCache: false }, savedAt: Date.now() };
-    sessionStorage.setItem(getCacheKey(_instanceId), JSON.stringify(entry));
+    sessionStorage.setItem(key, JSON.stringify(entry));
   } catch { /* ignore */ }
 }
 
-export function clearCache(): void {
+export function clearCacheById(instanceId: string): void {
   try {
     if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.removeItem(getCacheKey(_instanceId));
+      sessionStorage.removeItem(getCacheKey(instanceId));
     }
   } catch { /* ignore */ }
 }
@@ -134,7 +131,10 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
         : Math.round(Date.now() - start);
     };
 
+    let settled = false;
+
     const timer = setTimeout(() => {
+      settled = true;
       resolve({
         ruleIndex: resource.ruleIndex,
         url: resource.url,
@@ -145,6 +145,8 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
     }, timeout);
 
     const done = (blocked: boolean, error?: string) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       resolve({
         ruleIndex: resource.ruleIndex,
@@ -182,10 +184,11 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
             };
             img.src = resource.url;
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             clearTimeout(fetchTimer);
             // fetch 直接 reject → 确定被拦截
-            done(true, err.name === 'AbortError' ? 'TIMEOUT' : 'FETCH_BLOCKED');
+            const errName = err instanceof DOMException ? err.name : '';
+            done(true, errName === 'AbortError' ? 'TIMEOUT' : 'FETCH_BLOCKED');
           });
       } else if (resource.resourceType === 'script') {
         const el = document.createElement('script');
@@ -202,8 +205,9 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
         img.onerror = () => done(true, 'IMAGE_BLOCKED');
         img.src = resource.url;
       }
-    } catch (err: any) {
-      done(true, err?.message || 'EXCEPTION');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'EXCEPTION';
+      done(true, message);
     }
   });
 }
@@ -218,7 +222,7 @@ export interface DetectOptions {
   /** 诱饵检测超时 ms（默认 200） */
   baitTimeout?: number;
   /** 实例标识，用于缓存隔离 */
-  instanceId?: string;
+  instanceId: string;
 }
 
 /**
@@ -228,16 +232,13 @@ export async function detect(
   resources: TestResource[],
   timeout: number = 3000,
   useCache: boolean = true,
-  options: DetectOptions = {},
+  options: DetectOptions,
 ): Promise<DetectionResult> {
-  // 设置实例级缓存
-  if (options.instanceId) {
-    setCacheInstanceId(options.instanceId);
-  }
+  const instanceId = options.instanceId;
 
   // 检查缓存
   if (useCache) {
-    const cached = readCache();
+    const cached = readCache(instanceId);
     if (cached) return cached;
   }
 
@@ -288,7 +289,7 @@ export async function detect(
   // 如果诱饵未启用，则网络探测权重 100%
   let confidence: number;
   if (baitResults.length > 0) {
-    confidence = netConfidence * 0.6 + baitConfidence * 0.4;
+    confidence = netConfidence * NET_WEIGHT + baitConfidence * BAIT_WEIGHT;
   } else {
     confidence = netConfidence;
   }
@@ -309,7 +310,7 @@ export async function detect(
     timestamp: Date.now(),
   };
 
-  writeCache(result);
+  writeCache(instanceId, result);
 
   return result;
 }

@@ -11,12 +11,12 @@
  */
 
 import { generateAllResources, generateByCategory, generateByConfidence } from './modules/resource-generator';
-import { detect, clearCache, DetectionResult } from './modules/detector';
+import { detect, clearCacheById, DetectionResult } from './modules/detector';
 import { CallbackManager, CallbackFn } from './modules/callback';
 import { EASYLIST_RULES } from './rules/easylist';
 import { BaitConfig } from './modules/bait-detector';
 
-export { DetectionResult } from './modules/detector';
+export { DetectionResult, SingleResult } from './modules/detector';
 export { TestResource } from './modules/resource-generator';
 export { CallbackFn } from './modules/callback';
 export { EasyListRule, EASYLIST_RULES } from './rules/easylist';
@@ -56,8 +56,10 @@ export interface AdblockDetector {
   offDetect(fn: CallbackFn): void;
   /** 清除缓存 */
   clearCache(): void;
-  /** 销毁实例（清缓存+清回调） */
+  /** 销毁实例（清缓存+清回调），销毁后 detect() 将 reject */
   destroy(): void;
+  /** 实例是否已销毁 */
+  readonly destroyed: boolean;
   /** 当前配置（只读） */
   readonly options: Required<Omit<DetectorOptions, 'category' | 'minConfidence' | 'baits'>> & DetectorOptions;
 }
@@ -69,6 +71,7 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
   // 每个实例独立回调管理器 + 独立缓存标识
   const callbacks = new CallbackManager();
   const _id = `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  let _destroyed = false;
 
   const opts: AdblockDetector['options'] = {
     timeout: options.timeout ?? 3000,
@@ -83,8 +86,13 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
 
   return {
     get options() { return opts; },
+    get destroyed() { return _destroyed; },
 
     async detect(): Promise<DetectionResult> {
+      if (_destroyed) {
+        throw new Error('[AdblockDetector] Instance has been destroyed');
+      }
+
       let resources;
       if (opts.category) {
         resources = generateByCategory(opts.category);
@@ -110,13 +118,20 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
       return result;
     },
 
-    onDetect(fn) { callbacks.on(fn); },
-    onceDetect(fn) { callbacks.once(fn); },
+    onDetect(fn) {
+      if (_destroyed) return;
+      callbacks.on(fn);
+    },
+    onceDetect(fn) {
+      if (_destroyed) return;
+      callbacks.once(fn);
+    },
     offDetect(fn) { callbacks.off(fn); },
-    clearCache() { clearCache(); },
+    clearCache() { clearCacheById(_id); },
 
     destroy() {
-      clearCache();
+      _destroyed = true;
+      clearCacheById(_id);
       callbacks.clear();
     },
   };

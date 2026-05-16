@@ -41,9 +41,11 @@ export class CallbackManager {
     this.entries.length = 0;
   }
 
-  /** 触发通知所有订阅者 */
+  /** 触发通知所有订阅者（正序执行） */
   emit(result: DetectionResult): void {
-    for (let i = this.entries.length - 1; i >= 0; i--) {
+    // 先收集需要移除的 once 回调索引，避免遍历中修改数组
+    const onceIndices: number[] = [];
+    for (let i = 0; i < this.entries.length; i++) {
       try {
         this.entries[i].fn(result);
       } catch (err) {
@@ -52,8 +54,12 @@ export class CallbackManager {
         }
       }
       if (this.entries[i].once) {
-        this.entries.splice(i, 1);
+        onceIndices.push(i);
       }
+    }
+    // 逆序移除 once 回调，避免索引偏移
+    for (let i = onceIndices.length - 1; i >= 0; i--) {
+      this.entries.splice(onceIndices[i], 1);
     }
   }
 

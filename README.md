@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[English](README_EN.md) | **中文**
+[English](https://github.com/wangkai000/adblock-easylist-detector/blob/main/README_EN.md) | **中文**
 
 > 基于 EasyList 规则反向探测 + CSS 诱饵元素双重检测的轻量级拦截器检测插件。不仅可检测 AdBlock/AdBlock Plus，还能识别 uBlock Origin、AdGuard 等所有基于 EasyList 规则的广告/内容拦截器。
 
@@ -37,28 +37,38 @@ yarn add -D adblock-easylist-detector
 
 ## 快速开始
 
+### 回调方式（推荐）
+
 ```typescript
 import { createDetector } from 'adblock-easylist-detector';
 
-// 创建检测器实例
 const detector = createDetector({
-  timeout: 3000,            // 单条资源超时 ms
-  confidenceThreshold: 0.5, // 置信度阈值
-  enableBait: true,         // 启用诱饵检测
+  timeout: 3000,
+  confidenceThreshold: 0.5,
+  enableBait: true,
 });
 
-// 注册回调
+// 注册回调，检测完成后自动触发
 detector.onDetect((result) => {
   if (result.detected) {
-    console.log('检测到 AdBlock！置信度:', result.confidence);
+    console.log('检测到拦截器！置信度:', result.confidence);
   }
 });
 
-// 执行检测
+// 发起检测（不阻塞主线程）
+detector.detect();
+```
+
+### Promise / await 方式
+
+```typescript
+const detector = createDetector({ timeout: 3000 });
+
+// await 只暂停当前 async 函数，不会阻塞页面
 const result = await detector.detect();
-console.log(result.detected);      // boolean
-console.log(result.confidence);    // 0~1
-console.log(result.blockedCount);  // 被拦截规则数
+console.log(result.detected);        // boolean
+console.log(result.confidence);      // 0~1
+console.log(result.blockedCount);    // 被拦截规则数
 console.log(result.baitHiddenCount); // 被隐藏诱饵数
 ```
 
@@ -80,21 +90,22 @@ console.log(result.baitHiddenCount); // 被隐藏诱饵数
 | `enableBait` | `boolean` | `true` | 是否启用 CSS 诱饵元素检测 |
 | `baits` | `BaitConfig[]` | 内置 5 条 | 自定义诱饵配置 |
 | `baitTimeout` | `number` | `200` | 诱饵检测超时（ms） |
-| `category` | `string` | - | 仅测试指定分类的规则 |
+| `category` | `'domain' \| 'path' \| 'param' \| 'third-party'` | - | 仅测试指定分类的规则 |
 | `minConfidence` | `number` | - | 仅测试置信度 ≥ 此值的规则 |
 
 **返回：** `AdblockDetector` 实例
 
 ### `AdblockDetector` 接口
 
-| 方法 | 说明 |
+| 方法/属性 | 说明 |
 |------|------|
 | `detect()` | 执行检测，返回 `Promise<DetectionResult>` |
 | `onDetect(fn)` | 注册持续回调 |
 | `onceDetect(fn)` | 注册一次性回调 |
 | `offDetect(fn)` | 移除回调 |
 | `clearCache()` | 清除 sessionStorage 缓存 |
-| `destroy()` | 销毁实例（清缓存 + 清回调） |
+| `destroy()` | 销毁实例（清缓存 + 清回调），销毁后 `detect()` 将抛错 |
+| `destroyed` | `boolean`，实例是否已销毁（只读） |
 | `options` | 当前配置（只读） |
 
 ### `DetectionResult` 结构
@@ -113,6 +124,22 @@ interface DetectionResult {
   fromCache: boolean;      // 是否命中缓存
   timestamp: number;       // 检测时间戳
 }
+```
+
+### 导出的 TypeScript 类型
+
+```typescript
+import type {
+  DetectionResult,       // 检测结果
+  SingleResult,          // 单条规则探测结果
+  DetectorOptions,       // createDetector 配置项
+  AdblockDetector,       // 检测器实例接口
+  CallbackFn,            // 回调函数类型
+  TestResource,          // 测试资源
+  EasyListRule,          // EasyList 规则定义
+  BaitConfig,            // 诱饵配置
+  BaitResult,            // 诱饵检测结果
+} from 'adblock-easylist-detector';
 ```
 
 ### `getInstance(options?)`
