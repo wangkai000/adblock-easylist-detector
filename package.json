@@ -10,7 +10,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/adblock-easylist-detector.esm.js",
       "require": "./dist/adblock-easylist-detector.cjs.js",
-      "default": "./dist/adblock-easylist-detector.cjs.js"
+      "default": "./dist/adblock-easylist-detector.esm.js"
     },
     "./detector": {
       "import": "./dist/detector.esm.js",
