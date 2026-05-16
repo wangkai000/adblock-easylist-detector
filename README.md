@@ -58,7 +58,7 @@ detector.onDetect((result) => {
 });
 
 // 如需再次检测，随时手动调用
-const result = await detector.detect();
+detector.detect();
 ```
 
 ### Promise / await 方式

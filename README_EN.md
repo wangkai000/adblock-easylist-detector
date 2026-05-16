@@ -58,7 +58,7 @@ detector.onDetect((result) => {
 });
 
 // Run another detection anytime
-const result = await detector.detect();
+detector.detect();
 ```
 
 ### Promise / await Style
