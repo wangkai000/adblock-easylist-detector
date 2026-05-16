@@ -1,5 +1,7 @@
 # adblock-easylist-detector
 
+**English** | [中文](README.md)
+
 A lightweight AdBlock detection plugin using dual detection: EasyList rule reverse-probing + CSS bait element checking.
 
 ## How It Works

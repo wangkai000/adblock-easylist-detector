@@ -1,5 +1,7 @@
 # adblock-easylist-detector
 
+[English](README_EN.md) | **中文**
+
 基于 EasyList 规则反向探测 + CSS 诱饵元素双重检测的轻量 AdBlock 检测插件。
 
 ## 工作原理
