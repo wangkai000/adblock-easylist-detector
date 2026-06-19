@@ -3,23 +3,36 @@
  *
  * 基于 EasyList 规则反向探测 + CSS 诱饵元素双重检测的轻量 JS 插件。
  *
+ * v1.1 新增：
+ *  - startPolling/stopPolling 定时轮询（Page Visibility API 集成）
+ *  - onDetectedChange 状态变化回调
+ *  - options 只读保护
+ *
  * Usage:
  *   import { createDetector } from 'adblock-easylist-detector';
  *   const detector = createDetector({ timeout: 3000, confidenceThreshold: 0.5 });
+ *
+ *   // 一次性检测
  *   detector.onDetect(result => console.log(result));
  *   const result = await detector.detect();
+ *
+ *   // 定时轮询
+ *   detector.startPolling({
+ *     interval: 5000,
+ *     onDetected: (result, prev) => console.log('changed', prev, '→', result),
+ *   });
  */
 
-import { generateAllResources, generateByCategory, generateByConfidence } from './modules/resource-generator';
-import { detect, clearCache, DetectionResult } from './modules/detector';
+import { generateByRuleIds, generateByCategory, generateByConfidence } from './modules/resource-generator';
+import { detect, clearCache as clearEngineCache, DetectionResult } from './modules/detector';
 import { CallbackManager, CallbackFn } from './modules/callback';
-import { EASYLIST_RULES } from './rules/easylist';
 import { BaitConfig } from './modules/bait-detector';
+import { DEFAULT_ACTIVE_RULE_IDS, EASYLIST_RULES } from './rules/easylist';
 
 export { DetectionResult } from './modules/detector';
 export { TestResource } from './modules/resource-generator';
 export { CallbackFn } from './modules/callback';
-export { EasyListRule, EASYLIST_RULES } from './rules/easylist';
+export { EasyListRule, EASYLIST_RULES, DEFAULT_ACTIVE_RULE_IDS } from './rules/easylist';
 export { BaitConfig, BaitResult, DEFAULT_BAITS } from './modules/bait-detector';
 
 /* ── 配置 ── */
@@ -41,6 +54,48 @@ export interface DetectorOptions {
   baits?: BaitConfig[];
   /** 诱饵检测超时 ms（默认 200） */
   baitTimeout?: number;
+  /** 网络探测权重 0~1（默认 0.6） */
+  netWeight?: number;
+  /** 诱饵检测权重 0~1（默认 0.4） */
+  baitWeight?: number;
+  /** 并发探测限制（默认 5） */
+  maxConcurrency?: number;
+  /** 调试模式（默认 false） */
+  debug?: boolean;
+  /** 启用的规则 ID 列表（默认 DEFAULT_ACTIVE_RULE_IDS，即 10 条核心规则）。设为 [] 则关闭所有网络探测 */
+  activeRules?: string[];
+}
+
+/* ── 版本号 ── */
+
+export const VERSION = '1.2.0';
+
+/* ── 轮询配置 ── */
+
+export interface PollingOptions {
+  /** 轮询间隔 ms（默认 5000） */
+  interval?: number;
+  /** 首次检测延迟 ms（默认 0，立即执行） */
+  initialDelay?: number;
+  /** 页面隐藏时降低频率的倍数（默认 3，设为 0 则隐藏时暂停） */
+  hiddenMultiplier?: number;
+  /** 最大轮询次数（默认 Infinity） */
+  maxPolls?: number;
+}
+
+export interface PollingController {
+  /** 开始轮询 */
+  start(): void;
+  /** 停止轮询 */
+  stop(): void;
+  /** 触发一次即时检测（不重置周期） */
+  checkNow(): Promise<DetectionResult>;
+  /** 是否正在轮询 */
+  readonly running: boolean;
+  /** 当前检测次数 */
+  readonly pollCount: number;
+  /** 最后一次检测结果 */
+  readonly lastResult: DetectionResult | null;
 }
 
 /* ── Detector 实例 ── */
@@ -48,29 +103,247 @@ export interface DetectorOptions {
 export interface AdblockDetector {
   /** 执行检测，返回 Promise<DetectionResult> */
   detect(): Promise<DetectionResult>;
-  /** 注册持续回调 */
+  /** 注册持续回调（每次检测都触发） */
   onDetect(fn: CallbackFn): void;
   /** 注册一次性回调 */
   onceDetect(fn: CallbackFn): void;
   /** 移除回调 */
   offDetect(fn: CallbackFn): void;
+  /** 注册状态变化回调（仅 detected 值变化时触发） */
+  onDetectedChange(fn: (result: DetectionResult, previous: DetectionResult | null) => void): void;
+  /** 移除状态变化回调 */
+  offDetectedChange(fn: (result: DetectionResult, previous: DetectionResult | null) => void): void;
+  /** 启动定时轮询检测 */
+  startPolling(options?: PollingOptions): PollingController;
+  /** 停止轮询 */
+  stopPolling(): void;
   /** 清除缓存 */
   clearCache(): void;
-  /** 销毁实例（清缓存+清回调） */
+  /** 销毁实例（清缓存+清回调+停止轮询） */
   destroy(): void;
   /** 当前配置（只读） */
-  readonly options: Required<Omit<DetectorOptions, 'category' | 'minConfidence' | 'baits'>> & DetectorOptions;
+  readonly options: Readonly<Required<Omit<DetectorOptions, 'category' | 'minConfidence' | 'baits'>> & DetectorOptions>;
+  /** 版本号 */
+  readonly version: string;
+  /** 启用一条规则（按 id） */
+  enableRule(id: string): void;
+  /** 禁用一条规则（按 id） */
+  disableRule(id: string): void;
+  /** 批量设置启用规则（覆盖当前列表） */
+  setActiveRules(ids: string[]): void;
+  /** 获取当前启用的规则 ID 列表 */
+  getActiveRules(): string[];
+  /** 获取全部 32 条规则（含 id/描述/分类/置信度） */
+  getAllRules(): import('./rules/easylist').EasyListRule[];
 }
+
+/* ── 内部实现：轮询控制器 ── */
+
+class PollingControllerImpl implements PollingController {
+  private _running = false;
+  private _pollCount = 0;
+  private _lastResult: DetectionResult | null = null;
+  private _interval: number;
+  private _hiddenMultiplier: number;
+  private _maxPolls: number;
+  private _detector: ReturnType<typeof createDetectorInternal>;
+  private _rafId: number | null = null;
+  private _lastTick = 0;
+  private _visibilityHandler: (() => void) | null = null;
+  private _effectiveInterval: number;
+
+  constructor(
+    detector: ReturnType<typeof createDetectorInternal>,
+    options: PollingOptions = {},
+  ) {
+    this._detector = detector;
+    this._interval = options.interval ?? 5000;
+    this._hiddenMultiplier = options.hiddenMultiplier ?? 3;
+    this._maxPolls = options.maxPolls ?? Infinity;
+    this._effectiveInterval = this._interval;
+  }
+
+  get running(): boolean { return this._running; }
+  get pollCount(): number { return this._pollCount; }
+  get lastResult(): DetectionResult | null { return this._lastResult; }
+
+  start(): void {
+    if (this._running) return;
+    this._running = true;
+
+    // Page Visibility API 集成
+    if (typeof document !== 'undefined') {
+      this._visibilityHandler = () => {
+        if (document.hidden) {
+          if (this._hiddenMultiplier === 0) {
+            // 完全暂停
+            this._stopTicking();
+          } else {
+            // 降低频率
+            this._effectiveInterval = this._interval * this._hiddenMultiplier;
+            this._restartTicking();
+          }
+        } else {
+          // 恢复可见 → 立即检测一次 + 恢复原始频率
+          this._effectiveInterval = this._interval;
+          this._restartTicking();
+          this._doCheck();
+        }
+      };
+      document.addEventListener('visibilitychange', this._visibilityHandler);
+    }
+
+    this._lastTick = 0;
+    this._startTicking();
+  }
+
+  stop(): void {
+    this._running = false;
+    this._stopTicking();
+    if (this._visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
+    }
+  }
+
+  async checkNow(): Promise<DetectionResult> {
+    return this._doCheck();
+  }
+
+  private _doCheck = async (): Promise<DetectionResult> => {
+    if (this._pollCount >= this._maxPolls) {
+      this.stop();
+      return this._lastResult!;
+    }
+
+    this._pollCount++;
+    try {
+      const result = await this._detector.detect();
+      this._lastResult = result;
+
+      // 触发 onDetect 回调
+      this._detector._emitDetect(result);
+
+      // 触发 onDetectedChange 回调（仅在状态变化时）
+      const prev = this._detector._lastResult;
+      if (!prev || prev.detected !== result.detected) {
+        this._detector._emitChange(result, prev);
+      }
+      this._detector._lastResult = result;
+
+      return result;
+    } catch {
+      // 检测异常时静默继续
+      return this._lastResult!;
+    }
+  };
+
+  private _startTicking(): void {
+    // rAF + 时间差判断，避免 setInterval 在后台标签页被节流
+    const tick = (now: number) => {
+      if (!this._running) return;
+      if (now - this._lastTick >= this._effectiveInterval) {
+        this._lastTick = now;
+        this._doCheck();
+      }
+      this._rafId = requestAnimationFrame(tick);
+    };
+    this._rafId = requestAnimationFrame(tick);
+  }
+
+  private _stopTicking(): void {
+    if (this._rafId !== null) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+  }
+
+  private _restartTicking(): void {
+    this._stopTicking();
+    this._lastTick = 0;
+    this._startTicking();
+  }
+}
+
+/* ── 内部实现 ── */
+
+interface InternalDetector {
+  detect(): Promise<DetectionResult>;
+  _emitDetect(result: DetectionResult): void;
+  _emitChange(result: DetectionResult, prev: DetectionResult | null): void;
+  _lastResult: DetectionResult | null;
+}
+
+function createDetectorInternal(
+  opts: AdblockDetector['options'],
+  callbacks: CallbackManager,
+  changeCallbacks: CallbackManager,
+  _id: string,
+): InternalDetector & { detect: () => Promise<DetectionResult> } {
+  let _lastResult: DetectionResult | null = null;
+
+  return {
+    get _lastResult() { return _lastResult; },
+    set _lastResult(r: DetectionResult | null) { _lastResult = r; },
+
+    async detect(): Promise<DetectionResult> {
+      const ruleIds = opts.activeRules ?? DEFAULT_ACTIVE_RULE_IDS;
+      let resources;
+      if (opts.category) {
+        resources = generateByCategory(opts.category, ruleIds);
+      } else if (opts.minConfidence !== undefined) {
+        resources = generateByConfidence(opts.minConfidence, ruleIds);
+      } else {
+        resources = generateByRuleIds(ruleIds);
+      }
+
+      const result = await detect(resources, opts.timeout, opts.cache, {
+        enableBait: opts.enableBait,
+        baits: opts.baits,
+        baitTimeout: opts.baitTimeout,
+        instanceId: _id,
+        netWeight: opts.netWeight,
+        baitWeight: opts.baitWeight,
+        maxConcurrency: opts.maxConcurrency,
+      });
+
+      // 根据阈值覆盖 detected 字段
+      result.detected = result.confidence >= opts.confidenceThreshold;
+
+      // 触发 onDetect 回调
+      callbacks.emit(result);
+
+      // 触发 onDetectedChange 回调
+      if (!_lastResult || _lastResult.detected !== result.detected) {
+        changeCallbacks.emitWithPrev(result, _lastResult);
+      }
+      _lastResult = result;
+
+      return result;
+    },
+
+    _emitDetect(result: DetectionResult): void {
+      callbacks.emit(result);
+    },
+
+    _emitChange(result: DetectionResult, prev: DetectionResult | null): void {
+      changeCallbacks.emitWithPrev(result, prev);
+    },
+  };
+}
+
+/* ── 工厂函数 ── */
 
 /**
  * 工厂函数：创建 Detector 实例
  */
 export function createDetector(options: DetectorOptions = {}): AdblockDetector {
-  // 每个实例独立回调管理器 + 独立缓存标识
   const callbacks = new CallbackManager();
+  const changeCallbacks = new CallbackManager();
   const _id = `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-  const opts: AdblockDetector['options'] = {
+  // P1-9: 内部可变，对外只读
+  const _opts = {
     timeout: options.timeout ?? 3000,
     confidenceThreshold: options.confidenceThreshold ?? 0.5,
     cache: options.cache ?? true,
@@ -79,45 +352,107 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
     enableBait: options.enableBait ?? true,
     baits: options.baits,
     baitTimeout: options.baitTimeout ?? 200,
+    netWeight: options.netWeight ?? 0.6,
+    baitWeight: options.baitWeight ?? 0.4,
+    maxConcurrency: options.maxConcurrency ?? 5,
+    debug: options.debug ?? false,
+    activeRules: options.activeRules ? [...options.activeRules] : [...DEFAULT_ACTIVE_RULE_IDS],
+  };
+
+  // 规则快查 map
+  const _ruleMap = new Map(EASYLIST_RULES.map(r => [r.id, r]));
+
+  const internal = createDetectorInternal(_opts, callbacks, changeCallbacks, _id);
+
+  let polling: PollingControllerImpl | null = null;
+
+  const debug = (...args: any[]) => {
+    if (_opts.debug && typeof console !== 'undefined') {
+      console.debug('[AdblockDetector]', ...args);
+    }
   };
 
   return {
-    get options() { return opts; },
+    get options() {
+      // 返回只读快照
+      return Object.freeze({ ..._opts }) as AdblockDetector['options'];
+    },
+    version: VERSION,
 
     async detect(): Promise<DetectionResult> {
-      let resources;
-      if (opts.category) {
-        resources = generateByCategory(opts.category);
-      } else if (opts.minConfidence !== undefined) {
-        resources = generateByConfidence(opts.minConfidence);
-      } else {
-        resources = generateAllResources();
-      }
-
-      const result = await detect(resources, opts.timeout, opts.cache, {
-        enableBait: opts.enableBait,
-        baits: opts.baits,
-        baitTimeout: opts.baitTimeout,
-        instanceId: _id,
-      });
-
-      // 根据阈值覆盖 detected 字段
-      result.detected = result.confidence >= opts.confidenceThreshold;
-
-      // 触发回调
-      callbacks.emit(result);
-
-      return result;
+      debug('detect() called');
+      return internal.detect();
     },
 
     onDetect(fn) { callbacks.on(fn); },
     onceDetect(fn) { callbacks.once(fn); },
     offDetect(fn) { callbacks.off(fn); },
-    clearCache() { clearCache(); },
+
+    onDetectedChange(fn) {
+      changeCallbacks.on(fn);
+    },
+    offDetectedChange(fn) {
+      changeCallbacks.off(fn);
+    },
+
+    startPolling(pollOpts: PollingOptions = {}): PollingController {
+      if (polling) {
+        polling.stop();
+      }
+      polling = new PollingControllerImpl(internal, pollOpts);
+      polling.start();
+      debug('startPolling()', { interval: pollOpts.interval ?? 5000 });
+      return polling;
+    },
+
+    stopPolling(): void {
+      if (polling) {
+        polling.stop();
+        polling = null;
+        debug('stopPolling()');
+      }
+    },
+
+    clearCache() {
+      clearEngineCache(_id);
+      debug('clearCache()');
+    },
 
     destroy() {
-      clearCache();
+      this.stopPolling();
+      clearEngineCache(_id);
       callbacks.clear();
+      changeCallbacks.clear();
+      debug('destroy()');
+    },
+
+    enableRule(id: string) {
+      if (!_opts.activeRules.includes(id) && _ruleMap.has(id)) {
+        _opts.activeRules.push(id);
+        debug('enableRule', id);
+      }
+    },
+
+    disableRule(id: string) {
+      const i = _opts.activeRules.indexOf(id);
+      if (i >= 0) {
+        _opts.activeRules.splice(i, 1);
+        debug('disableRule', id);
+      }
+    },
+
+    setActiveRules(ids: string[]) {
+      _opts.activeRules.length = 0;
+      _opts.activeRules.push(...ids.filter(id => _ruleMap.has(id)));
+      debug('setActiveRules', _opts.activeRules.length);
+    },
+
+    getActiveRules(): string[] {
+      return [..._opts.activeRules];
+    },
+
+    getAllRules() {
+      return EASYLIST_RULES;
     },
   };
 }

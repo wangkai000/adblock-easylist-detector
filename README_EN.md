@@ -1,159 +1,287 @@
 # adblock-easylist-detector
 
-A lightweight AdBlock detection plugin using dual detection: EasyList rule reverse-probing + CSS bait element checking.
-
-## How It Works
-
-### 🔥 Dual Detection Mechanism
-
-1. **Network Probing**: Selects 10 high-hit-rate rules from the EasyList main list, generates corresponding test resource URLs, and attempts to load them. If loading fails (timeout/blocked), it serves as evidence of an AdBlocker.
-2. **Bait Element Detection**: Creates DOM elements with ad-specific class/id attributes, inserts them into the page, and checks whether they are hidden by AdBlock CSS rules (`display:none` / `visibility:hidden` / zero-size).
-
-Both methods are combined with weighted scoring (network 60% + bait 40%) for improved accuracy.
-
-### 📋 EasyList Rule Coverage
-
-| Category | Rules | Description |
-|----------|-------|-------------|
-| domain | 5 | Domain blocking (Google AdSense, DoubleClick, Amazon, etc.) |
-| path | 2 | Path wildcards (ads.js, ad/banner/*) |
-| param | 1 | Query parameter blocking (ad_type=) |
-| third-party | 2 | Third-party ads (Taboola, Outbrain) |
-
-Each rule carries a confidence weight (0.75–0.95) used in weighted result calculation.
-
-## Installation
-
-```bash
-npm install -D adblock-easylist-detector
-```
+> Lightweight AdBlock detection using EasyList reverse-probing + CSS bait element detection.
 
 ## Quick Start
 
-```typescript
+```bash
+npm install adblock-easylist-detector
+```
+
+```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-// Create a detector instance
-const detector = createDetector({
-  timeout: 3000,            // Per-resource timeout (ms)
-  confidenceThreshold: 0.5, // Confidence threshold
-  enableBait: true,         // Enable bait detection
-});
+const { detected, confidence } = await createDetector().detect();
 
-// Register callback
-detector.onDetect((result) => {
-  if (result.detected) {
-    console.log('AdBlock detected! Confidence:', result.confidence);
-  }
-});
-
-// Run detection
-const result = await detector.detect();
-console.log(result.detected);      // boolean
-console.log(result.confidence);    // 0~1
-console.log(result.blockedCount);  // Number of blocked rules
-console.log(result.baitHiddenCount); // Number of hidden baits
+if (detected) {
+  console.log(`AdBlock detected — confidence: ${(confidence * 100).toFixed(0)}%`);
+}
 ```
+
+---
+
+## How It Works
+
+### 🔥 Dual Detection
+
+| Method | How | Weight |
+|--------|-----|:------:|
+| **Network Probe** | Requests resources from high-hit-rate EasyList ad domains; blocked = AdBlocker present | 60% |
+| **Bait Detection** | Injects DOM elements with ad-like class/id attributes, checks if CSS rules hide them | 40% |
+
+Weighted combination for higher accuracy than either method alone.
+
+### 📋 Rule Pool (32 Rules Total)
+
+Full set of 32 EasyList high-hit rules covering major global ad platforms:
+
+| Category | Count | Examples |
+|----------|:-----:|------|
+| Domain | 21 | Google AdSense, DoubleClick, Amazon Ads, Criteo, Baidu, Tanx, Tencent… |
+| Path | 7 | ads.js, ad/banner, popunder, advertisement… |
+| Query Param | 2 | ad_type=, ad_unit= |
+| Third-party | 2 | Taboola, Outbrain |
+
+Each rule has a confidence score (0.62–0.95). **10 core rules are active by default** (high coverage, low false-positive).
+
+---
 
 ## API
 
 ### `createDetector(options?)`
 
-Creates a detector instance with independent callback chain and cache.
+```ts
+const detector = createDetector({
+  timeout: 3000,              // Per-resource timeout in ms (default 3000)
+  confidenceThreshold: 0.5,   // Detection threshold 0–1 (default 0.5)
+  cache: true,                // Enable sessionStorage cache, 5-min TTL
+  enableBait: true,           // Enable CSS bait detection
+  activeRules: [...],         // Custom active rule set; defaults to DEFAULT_ACTIVE_RULE_IDS (10 rules)
+  // Advanced
+  category: 'domain',         // Only test a specific category
+  minConfidence: 0.8,         // Only test rules with confidence ≥ this value
+  baitTimeout: 200,           // Bait detection timeout in ms
+  baits: [],                  // Custom bait configs
+  netWeight: 0.6,             // Network probe weight
+  baitWeight: 0.4,            // Bait detection weight
+  maxConcurrency: 5,          // Max concurrent probes
+  debug: false,               // Enable debug logging
+});
+```
 
-**Options:**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `timeout` | `number` | `3000` | Per-resource load timeout (ms) |
-| `confidenceThreshold` | `number` | `0.5` | Confidence threshold for AdBlock detection (0~1) |
-| `cache` | `boolean` | `true` | Enable sessionStorage caching (5 min TTL) |
-| `enableBait` | `boolean` | `true` | Enable CSS bait element detection |
-| `baits` | `BaitConfig[]` | 5 built-in | Custom bait configurations |
-| `baitTimeout` | `number` | `200` | Bait detection timeout (ms) |
-| `category` | `string` | - | Test only rules of a specific category |
-| `minConfidence` | `number` | - | Test only rules with confidence ≥ this value |
-
-**Returns:** `AdblockDetector` instance
-
-### `AdblockDetector` Interface
+### `AdblockDetector` Methods
 
 | Method | Description |
 |--------|-------------|
-| `detect()` | Run detection, returns `Promise<DetectionResult>` |
-| `onDetect(fn)` | Register a persistent callback |
-| `onceDetect(fn)` | Register a one-time callback |
+| `detect()` | Run detection → `Promise<DetectionResult>` |
+| `onDetect(fn)` | Register persistent callback |
+| `onceDetect(fn)` | Register one-shot callback |
 | `offDetect(fn)` | Remove a callback |
+| **Rule Management** | |
+| `enableRule(id)` | Enable a rule (takes effect immediately) |
+| `disableRule(id)` | Disable a rule |
+| `setActiveRules(ids)` | Replace active rule set |
+| `getActiveRules()` | Get currently active rule IDs |
+| `getAllRules()` | Get all 32 rules with details (id, description, category, confidence) |
+| **Other** | |
 | `clearCache()` | Clear sessionStorage cache |
 | `destroy()` | Destroy instance (clear cache + callbacks) |
-| `options` | Current configuration (read-only) |
+| `options` | Current config (read-only) |
 
-### `DetectionResult` Structure
+### `DetectionResult`
 
-```typescript
-interface DetectionResult {
-  detected: boolean;       // Whether AdBlock was detected
-  confidence: number;      // Overall confidence 0~1
-  blockedCount: number;    // Number of blocked resources
-  totalCount: number;      // Total rules tested
-  details: SingleResult[]; // Network probe details
-  baitResults: BaitResult[]; // Bait detection details
-  baitHiddenCount: number; // Number of hidden baits
-  baitTotalCount: number;  // Total baits tested
+```ts
+{
+  detected: boolean;        // AdBlock detected?
+  confidence: number;       // Overall confidence 0–1
+  blockedCount: number;     // Network probes blocked
+  totalCount: number;       // Total network probes
+  details: [{              // Per-probe details
+    rule: EasyListRule;
+    url: string;
+    blocked: boolean;
+    elapsed: number;       // ms
+  }];
+  baitResults: [{         // Per-bait details
+    description: string;
+    hidden: boolean;
+    reason?: string;      // display:none / visibility:hidden / zero-size / opacity:0 / removed
+  }];
+  baitHiddenCount: number;
+  baitTotalCount: number;
   totalDuration: number;   // Total detection time (ms)
-  fromCache: boolean;      // Whether result came from cache
-  timestamp: number;       // Detection timestamp
+  fromCache: boolean;
+  timestamp: number;
 }
 ```
 
-### `getInstance(options?)`
+---
 
-Returns a global singleton for simple use cases.
+## Common Scenarios
 
-```typescript
-import { getInstance } from 'adblock-easylist-detector';
-const detector = getInstance();
-const result = await detector.detect();
+### Toggle Rules
+
+```ts
+const d = createDetector();
+
+// Add a rule
+d.enableRule('criteo');
+
+// Temporarily disable one
+d.disableRule('pos-baidu');
+
+// Replace entirely — only Google ads
+d.setActiveRules(['pagead2-googlesyndication', 'doubleclick', 'adservice-google']);
+
+// Check what's active
+console.log(d.getActiveRules()); // ['pagead2-googlesyndication', 'doubleclick', 'adservice-google']
+
+// Browse all 32 rules and pick your own
+d.getAllRules().forEach(r => console.log(r.id, r.description, r.confidence));
 ```
 
-## Advanced Usage
+### Custom Rules at Creation
 
-### Test Only a Specific Category
+```ts
+const d = createDetector({
+  activeRules: ['pagead2-googlesyndication', 'criteo', 'outbrain'],
+});
 
-```typescript
-const detector = createDetector({ category: 'domain' });
-// Only test domain-blocking rules (5 rules)
+const r = await d.detect();
+// r.totalCount === 3
+```
+
+### Callback Mode (Continuous Monitoring)
+
+```ts
+const d = createDetector();
+
+d.onDetect((result) => {
+  if (result.detected) {
+    // Show warning, fire analytics, redirect…
+    reportAdBlock(result.confidence);
+  }
+});
+
+await d.detect();            // initial check
+button.onclick = () => d.detect(); // re-check on user action
+```
+
+### Network Probe Only (No Baits)
+
+```ts
+const d = createDetector({ enableBait: false });
+const r = await d.detect();
+// r.baitTotalCount === 0
 ```
 
 ### Custom Baits
 
-```typescript
-const detector = createDetector({
+```ts
+const d = createDetector({
   baits: [
-    {
-      className: 'my-ad-class',
-      id: 'ad-slot-1',
-      confidence: 0.9,
-      description: 'Custom ad slot',
-    },
+    { className: 'ad-unit', id: 'top-banner', confidence: 0.9, description: 'Top banner slot' },
+    { className: 'sponsored', id: 'sidebar-widget', confidence: 0.85, description: 'Sidebar ad' },
   ],
 });
 ```
 
-### Network Probing Only (No Baits)
+### Global Singleton
 
-```typescript
-const detector = createDetector({ enableBait: false });
+```ts
+import { getInstance } from 'adblock-easylist-detector';
+const r = await getInstance().detect();
 ```
 
-### UMD Usage
+---
+
+## Full Example
+
+```ts
+import { createDetector } from 'adblock-easylist-detector';
+
+async function initAdBlockCheck() {
+  // 1. Create detector — focused on Google + platform-specific rules
+  const detector = createDetector({
+    timeout: 4000,
+    confidenceThreshold: 0.6,
+    activeRules: [
+      'pagead2-googlesyndication',
+      'doubleclick',
+      'ads-js',
+      'ad-banner',
+      'outbrain',
+      'taboola',
+    ],
+  });
+
+  // 2. Continuous monitoring
+  detector.onDetect((result) => {
+    if (result.detected) {
+      console.warn(
+        `[AdBlock] Blocker detected | confidence:${(result.confidence * 100).toFixed(0)}% ` +
+        `| network:${result.blockedCount}/${result.totalCount} ` +
+        `| bait:${result.baitHiddenCount}/${result.baitTotalCount} ` +
+        `| time:${result.totalDuration}ms`
+      );
+      showAdBlockNotice(result.confidence);
+    }
+  });
+
+  // 3. First check
+  let result = await detector.detect();
+
+  if (result.fromCache) {
+    console.log('[AdBlock] Cache hit, skipping probe');
+    return;
+  }
+
+  // 4. Not detected but some blocks — add more rules and retry
+  if (!result.detected && result.blockedCount > 0) {
+    detector.enableRule('criteo');
+    detector.enableRule('amazon-adsystem');
+    result = await detector.detect();
+  }
+
+  // 5. Too slow? Disable baits for next round (performance-sensitive)
+  if (result.totalDuration > 3000) {
+    console.warn('[AdBlock] Detection took too long, disabling baits next time');
+    const fastDetector = createDetector({
+      enableBait: false,
+      activeRules: detector.getActiveRules(),
+    });
+    await fastDetector.detect();
+  }
+
+  // 6. Explore unused rules
+  const disabledRules = detector.getAllRules().filter(
+    r => !detector.getActiveRules().includes(r.id)
+  );
+  console.log('Available (not active):', disabledRules.map(r => `${r.id} (${r.description})`));
+}
+
+function showAdBlockNotice(confidence: number) {
+  // Your business logic: modal, redirect, analytics…
+}
+```
+
+---
+
+## Import Options
+
+| Method | Code |
+|--------|------|
+| ESM | `import { createDetector } from 'adblock-easylist-detector'` |
+| UMD | `<script src="adblock-easylist-detector.umd.js"></script>` |
+
+UMD global: `AdblockEasylistDetector`
 
 ```html
-<script src="dist/adblock-easylist-detector.umd.js"></script>
+<script src="dist/adblock-easylist-detector.umd.min.js"></script>
 <script>
-  var detector = AdblockEasylistDetector.createDetector();
-  detector.detect().then(function(result) {
-    console.log('AdBlock detected:', result.detected);
+  var d = AdblockEasylistDetector.createDetector();
+  d.detect().then(function(r) {
+    console.log('AdBlock:', r.detected);
   });
 </script>
 ```
@@ -162,10 +290,9 @@ const detector = createDetector({ enableBait: false });
 
 | File | Format | Description |
 |------|--------|-------------|
-| `adblock-easylist-detector.esm.js` | ESM | ES Module, Tree-shakable |
-| `adblock-easylist-detector.umd.js` | UMD | CommonJS / AMD / `<script>` compatible |
-| `adblock-easylist-detector.esm.min.js` | ESM | Minified |
-| `adblock-easylist-detector.umd.min.js` | UMD | Minified |
+| `adblock-easylist-detector.esm.js` | ESM | Full bundle, tree-shakable |
+| `adblock-easylist-detector.umd.js` | UMD | Full bundle, `<script>` ready |
+| `*.min.js` | ESM/UMD | Minified |
 | `detector.esm.js` | ESM | Detection engine only |
 | `resource-generator.esm.js` | ESM | Resource generator only |
 | `bait-detector.esm.js` | ESM | Bait detector only |
@@ -173,61 +300,49 @@ const detector = createDetector({ enableBait: false });
 
 ## Technical Details
 
-### Network Probing Strategy
+### Network Probing
 
-- **Script tags**: Most reliable — AdBlock directly blocks script loading (`onerror` fires)
-- **Image tags**: Secondary — image request blocking is also common
-- **Fetch no-cors + Image secondary validation**: For `xmlhttprequest` types, `fetch` in `no-cors` mode may return opaque responses causing false negatives. An Image probe is added as confirmation.
+- **`<script>`** — Most reliable; AdBlock intercepts script loading (`onerror`)
+- **`<img>`** — Image request blocking is also common
+- **fetch no-cors + image fallback** — For XHR-type rules; no-cors fetch may return opaque responses (false negatives), so an image probe confirms
 
-### Bait Detection Strategy
+### Bait Detection
 
-- Creates `<div>` elements with ad-specific class/id, inserted into DOM
+- Injects `<div>` elements with ad-like class/id into the page
 - Dual timing: `requestAnimationFrame` + `setTimeout(50ms)` fallback (rAF may not fire in background tabs)
-- Check dimensions: `display:none`, `visibility:hidden`, `opacity:0`, zero-size, removed from DOM
-- Auto-cleanup: elements are removed after detection
+- Checks: `display:none`, `visibility:hidden`, `opacity:0`, zero-size, DOM removal
+- Auto-cleanup after detection
 
 ### Caching
 
-- Uses `sessionStorage` to cache detection results
-- TTL: 5 minutes
-- Instance isolation: each `createDetector()` instance has a unique cache key
+- `sessionStorage` cache, 5-minute TTL
+- Per-instance isolation (unique cache key)
+- SSR-safe: all modules check `typeof window/document`
 
-### SSR Safety
-
-All modules include `typeof window/document` checks and gracefully degrade in Node.js environments.
+---
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run tests
-npm test
-
-# Watch mode tests
-npm run test:watch
-
-# Clean build artifacts
-npm run clean
+npm install        # Install deps
+npm run build      # Build
+npm test           # Run tests (53 cases)
+npm run test:watch # Watch mode
+npm run clean      # Clean output
 ```
 
 ## Testing
 
-Using Vitest + jsdom with 35 test cases covering:
+Vitest + jsdom, 53 test cases covering:
 
-- EasyList rule completeness and category coverage
+- EasyList rule integrity, id uniqueness, category coverage
+- Rule management API (enable/disable/setActive/getActive/getAll)
 - Resource URL generation and filtering
 - Callback management (on/once/off/clear/multi-instance isolation/error isolation)
-- Bait element detection (DOM insertion/hidden detection/auto-cleanup)
-- Detector integration (configuration/threshold/cache isolation)
+- Bait detection (DOM injection/hidden detection/auto-cleanup)
+- Detector integration (config/threshold/cache isolation)
 
-## Browser Test Page
-
-After building, open `test/index.html` (requires a local server) for a visual detection result dashboard. Toggle AdBlock on/off and refresh to compare.
+Browser test page: open `test/index.html` after building (requires a local server).
 
 ## License
 

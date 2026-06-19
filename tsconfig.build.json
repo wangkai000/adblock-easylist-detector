@@ -11,8 +11,10 @@
     "declarationDir": "dist",
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "lib": ["ES2018", "DOM", "DOM.Iterable"]
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "test", ".temp"]
+  "exclude": ["node_modules", "dist", "test", ".temp", "src/**/*.test.ts"]
 }

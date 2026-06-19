@@ -4,10 +4,16 @@
  * 网络探测：生成测试资源 URL，检查加载是否被拦截
  * 诱饵检测：创建广告特征 DOM 元素，检查是否被 CSS 规则隐藏
  * 两种方式结合，提高检测准确率
+ *
+ * v1.1 优化：
+ *  - P0-1/2/4: 统一 cleanup 数组解决 Script/fetch/Image DOM 泄漏
+ *  - P0-3: 缓存 instanceId 改参数传递，消灭模块级全局竞态
+ *  - P1-2: 置信度权重可配置
+ *  - P1-7: 并发控制
  */
 
 import { TestResource } from './resource-generator';
-import { detectByBait, BaitConfig, BaitResult, DEFAULT_BAITS } from './bait-detector';
+import { detectByBait, BaitConfig, BaitResult } from './bait-detector';
 
 /* ── 类型 ── */
 
@@ -55,26 +61,21 @@ function getCacheKey(instanceId: string): string {
   return `${CACHE_KEY_PREFIX}${instanceId}`;
 }
 
-let _instanceId = 'default';
-
-/** 设置缓存实例标识（由 createDetector 调用） */
-export function setCacheInstanceId(id: string): void {
-  _instanceId = id;
-}
+let _fallbackInstanceId = 'default';
 
 interface CacheEntry {
   result: DetectionResult;
   savedAt: number;
 }
 
-function readCache(): DetectionResult | null {
+function readCache(instanceId: string): DetectionResult | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    const raw = sessionStorage.getItem(getCacheKey(_instanceId));
+    const raw = sessionStorage.getItem(getCacheKey(instanceId));
     if (!raw) return null;
     const entry: CacheEntry = JSON.parse(raw);
     if (Date.now() - entry.savedAt > CACHE_TTL) {
-      sessionStorage.removeItem(getCacheKey(_instanceId));
+      try { sessionStorage.removeItem(getCacheKey(instanceId)); } catch { /* quota or disabled */ }
       return null;
     }
     return { ...entry.result, fromCache: true };
@@ -83,20 +84,35 @@ function readCache(): DetectionResult | null {
   }
 }
 
-function writeCache(result: DetectionResult): void {
+function writeCache(result: DetectionResult, instanceId: string): void {
   try {
     if (typeof sessionStorage === 'undefined') return;
     const entry: CacheEntry = { result: { ...result, fromCache: false }, savedAt: Date.now() };
-    sessionStorage.setItem(getCacheKey(_instanceId), JSON.stringify(entry));
+    sessionStorage.setItem(getCacheKey(instanceId), JSON.stringify(entry));
+  } catch { /* quota exceeded or storage disabled */ }
+}
+
+export function clearCache(instanceId?: string): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (instanceId) {
+        sessionStorage.removeItem(getCacheKey(instanceId));
+      } else {
+        // 清除所有实例的缓存（遍历 sessionStorage）
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const key = sessionStorage.key(i);
+          if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+            sessionStorage.removeItem(key);
+          }
+        }
+      }
+    }
   } catch { /* ignore */ }
 }
 
-export function clearCache(): void {
-  try {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.removeItem(getCacheKey(_instanceId));
-    }
-  } catch { /* ignore */ }
+/** @deprecated 保留旧签名兼容，但建议用 detect options 中的 instanceId */
+export function setCacheInstanceId(id: string): void {
+  _fallbackInstanceId = id;
 }
 
 /* ── 网络探测 ── */
@@ -111,6 +127,8 @@ export function clearCache(): void {
  *    ⚠️ no-cors 模式下 fetch 即使被 AdBlock 拦截，
  *    浏览器也可能返回 opaque response 而非 reject。
  *    因此对 xmlhttprequest 类型，优先使用 script 标签二次确认。
+ *
+ * P0-1 fix: timeout 路径统一调用 cleanupFns 清理 DOM/连接
  */
 function probeResource(resource: TestResource, timeout: number): Promise<SingleResult> {
   const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -128,24 +146,25 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
       return;
     }
 
+    // P0 fix: 统一 cleanup 数组 — timeout/load/error 三条路径统一清理
+    const cleanupFns: Array<() => void> = [];
+    let resolved = false;
+
     const getDuration = () => {
       return typeof performance !== 'undefined'
         ? Math.round(performance.now() - start)
         : Math.round(Date.now() - start);
     };
 
-    const timer = setTimeout(() => {
-      resolve({
-        ruleIndex: resource.ruleIndex,
-        url: resource.url,
-        blocked: true,
-        duration: timeout,
-        error: 'TIMEOUT',
-      });
-    }, timeout);
-
-    const done = (blocked: boolean, error?: string) => {
+    const safeDone = (blocked: boolean, error?: string) => {
+      if (resolved) return;
+      resolved = true;
       clearTimeout(timer);
+      // 统一执行清理
+      for (const fn of cleanupFns) {
+        try { fn(); } catch { /* best effort */ }
+      }
+      cleanupFns.length = 0;
       resolve({
         ruleIndex: resource.ruleIndex,
         url: resource.url,
@@ -155,57 +174,99 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
       });
     };
 
+    // timeout 回调现在也走 safeDone → 统一清理
+    const timer = setTimeout(() => {
+      safeDone(true, 'TIMEOUT');
+    }, timeout);
+
     try {
       if (resource.resourceType === 'xmlhttprequest') {
-        // xmlhttprequest 类型：先尝试 fetch no-cors，再通过 Image 二次确认
-        // fetch no-cors 的 opaque response 不可靠，可能误判
-        // 策略：fetch 成功 → 用 Image 加同一 URL 二次验证
         const controller = new AbortController();
         const fetchTimer = setTimeout(() => controller.abort(), timeout);
 
+        // 注册 cleanup：abort + clear fetchTimer
+        cleanupFns.push(() => {
+          try { controller.abort(); } catch { /* */ }
+          clearTimeout(fetchTimer);
+        });
+
         fetch(resource.url, { mode: 'no-cors', signal: controller.signal })
-          .then((resp) => {
+          .then((_resp) => {
             clearTimeout(fetchTimer);
             // no-cors 成功只代表请求发出了，不代表没被拦截
             // 用 Image 二次验证
             const img = new Image();
             const imgTimer = setTimeout(() => {
-              done(true, 'TIMEOUT_SECONDARY');
+              safeDone(true, 'TIMEOUT_SECONDARY');
             }, Math.min(timeout, 1500));
+
+            // 注册 Image cleanup
+            cleanupFns.push(() => {
+              clearTimeout(imgTimer);
+              img.src = '';
+            });
+
             img.onload = () => {
               clearTimeout(imgTimer);
-              done(false);
+              safeDone(false);
             };
             img.onerror = () => {
               clearTimeout(imgTimer);
-              done(true, 'FETCH_IMAGE_BLOCKED');
+              safeDone(true, 'FETCH_IMAGE_BLOCKED');
             };
             img.src = resource.url;
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             clearTimeout(fetchTimer);
-            // fetch 直接 reject → 确定被拦截
-            done(true, err.name === 'AbortError' ? 'TIMEOUT' : 'FETCH_BLOCKED');
+            const errName = err instanceof Error ? err.name : undefined;
+            safeDone(true, errName === 'AbortError' ? 'TIMEOUT' : 'FETCH_BLOCKED');
           });
       } else if (resource.resourceType === 'script') {
         const el = document.createElement('script');
         el.src = resource.url;
         el.async = true;
-        const cleanup = () => { try { document.head.removeChild(el); } catch { /* */ } };
-        el.onload = () => { cleanup(); done(false); };
-        el.onerror = () => { cleanup(); done(true, 'SCRIPT_BLOCKED'); };
+
+        // 注册 script cleanup
+        cleanupFns.push(() => { try { document.head.removeChild(el); } catch { /* */ } });
+
+        el.onload = () => { safeDone(false); };
+        el.onerror = () => { safeDone(true, 'SCRIPT_BLOCKED'); };
         document.head.appendChild(el);
       } else {
         // image
         const img = new Image();
-        img.onload = () => done(false);
-        img.onerror = () => done(true, 'IMAGE_BLOCKED');
+
+        // 注册 image cleanup
+        cleanupFns.push(() => { img.src = ''; });
+
+        img.onload = () => safeDone(false);
+        img.onerror = () => safeDone(true, 'IMAGE_BLOCKED');
         img.src = resource.url;
       }
-    } catch (err: any) {
-      done(true, err?.message || 'EXCEPTION');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'EXCEPTION';
+      safeDone(true, msg);
     }
   });
+}
+
+/* ── 并发控制工具 ── */
+
+/** 限制并发数的 Promise.all */
+async function promiseAllLimit<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let idx = 0;
+
+  async function worker(): Promise<void> {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
 }
 
 /* ── 主检测 ── */
@@ -219,6 +280,12 @@ export interface DetectOptions {
   baitTimeout?: number;
   /** 实例标识，用于缓存隔离 */
   instanceId?: string;
+  /** 网络探测权重 0~1（默认 0.6，诱饵自动补齐） */
+  netWeight?: number;
+  /** 诱饵检测权重 0~1（默认 0.4，网络自动补齐） */
+  baitWeight?: number;
+  /** 并发探测数限制（默认 5） */
+  maxConcurrency?: number;
 }
 
 /**
@@ -230,14 +297,11 @@ export async function detect(
   useCache: boolean = true,
   options: DetectOptions = {},
 ): Promise<DetectionResult> {
-  // 设置实例级缓存
-  if (options.instanceId) {
-    setCacheInstanceId(options.instanceId);
-  }
+  const instanceId = options.instanceId || _fallbackInstanceId;
 
   // 检查缓存
   if (useCache) {
-    const cached = readCache();
+    const cached = readCache(instanceId);
     if (cached) return cached;
   }
 
@@ -246,9 +310,13 @@ export async function detect(
     ? Math.round(performance.now() - startTotal)
     : Math.round(Date.now() - startTotal);
 
+  // P1-7: 并发控制
+  const concurrency = options.maxConcurrency ?? 5;
+  const probeTasks = resources.map((r) => () => probeResource(r, timeout));
+
   // 并行执行网络探测和诱饵检测
   const [details, baitResults] = await Promise.all([
-    Promise.all(resources.map((r) => probeResource(r, timeout))),
+    promiseAllLimit(probeTasks, concurrency),
     (options.enableBait !== false)
       ? detectByBait(options.baits, options.baitTimeout)
       : Promise.resolve([]),
@@ -283,12 +351,12 @@ export async function detect(
 
   const baitConfidence = baitWeightedTotal > 0 ? baitWeightedHidden / baitWeightedTotal : 0;
 
-  // ── 综合置信度 ──
-  // 网络探测权重 60%，诱饵检测权重 40%
-  // 如果诱饵未启用，则网络探测权重 100%
+  // ── P1-2: 可配置综合置信度权重 ──
   let confidence: number;
   if (baitResults.length > 0) {
-    confidence = netConfidence * 0.6 + baitConfidence * 0.4;
+    const netW = options.netWeight ?? 0.6;
+    const baitW = options.baitWeight ?? 0.4;
+    confidence = netConfidence * netW + baitConfidence * baitW;
   } else {
     confidence = netConfidence;
   }
@@ -309,7 +377,7 @@ export async function detect(
     timestamp: Date.now(),
   };
 
-  writeCache(result);
+  writeCache(result, instanceId);
 
   return result;
 }

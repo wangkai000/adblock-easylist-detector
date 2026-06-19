@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   generateAllResources,
+  generateByRuleIds,
   generateByCategory,
   generateByConfidence,
   renderUrl,
@@ -20,10 +21,35 @@ describe('renderUrl', () => {
   });
 });
 
+describe('generateByRuleIds', () => {
+  it('默认返回 10 条核心规则', () => {
+    const resources = generateByRuleIds();
+    expect(resources).toHaveLength(10);
+  });
+
+  it('按指定 id 生成', () => {
+    const resources = generateByRuleIds(['doubleclick', 'ads-js']);
+    expect(resources).toHaveLength(2);
+    expect(resources[0].rule.id).toBe('doubleclick');
+    expect(resources[1].rule.id).toBe('ads-js');
+  });
+
+  it('空数组返回空', () => {
+    const resources = generateByRuleIds([]);
+    expect(resources).toHaveLength(0);
+  });
+
+  it('不存在的 id 被忽略', () => {
+    const resources = generateByRuleIds(['doubleclick', 'not-exist']);
+    expect(resources).toHaveLength(1);
+    expect(resources[0].rule.id).toBe('doubleclick');
+  });
+});
+
 describe('generateAllResources', () => {
   it('生成的资源数等于规则数', () => {
     const resources = generateAllResources();
-    expect(resources).toHaveLength(10);
+    expect(resources).toHaveLength(32);
   });
 
   it('ruleIndex 连续递增', () => {
@@ -50,6 +76,13 @@ describe('generateByCategory', () => {
     }
   });
 
+  it('按 domain + ruleIds 交集筛选', () => {
+    const resources = generateByCategory('domain', ['doubleclick', 'ads-js']);
+    // doubleclick 是 domain, ads-js 是 path → 只返回 doubleclick
+    expect(resources).toHaveLength(1);
+    expect(resources[0].rule.id).toBe('doubleclick');
+  });
+
   it('不存在的分类返回空数组', () => {
     // @ts-expect-error 测试非法输入
     const resources = generateByCategory('nonexistent');
@@ -65,9 +98,16 @@ describe('generateByConfidence', () => {
     }
   });
 
+  it('按置信度 + ruleIds 交集筛选', () => {
+    const resources = generateByConfidence(0.9, ['pagead2-googlesyndication', 'taboola']);
+    // pagead2 0.95 >= 0.9 ✓, taboola 0.80 < 0.9 ✗
+    expect(resources).toHaveLength(1);
+    expect(resources[0].rule.id).toBe('pagead2-googlesyndication');
+  });
+
   it('极低阈值返回全部', () => {
     const resources = generateByConfidence(0);
-    expect(resources).toHaveLength(10);
+    expect(resources).toHaveLength(32);
   });
 
   it('极高阈值可能返回空', () => {

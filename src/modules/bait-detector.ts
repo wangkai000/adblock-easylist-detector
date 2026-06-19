@@ -4,6 +4,8 @@
  * 原理：大多数 AdBlock 不仅拦截网络请求，还会通过 CSS 规则隐藏广告占位元素。
  * 创建一个带广告特征 class/id 的 div，插入 DOM 后检查其 display/visibility，
  * 若被隐藏则说明存在 AdBlock。
+ *
+ * v1.1: 诱饵从 5 扩至 12，覆盖更多 AdBlock 规则
  */
 
 /** 诱饵元素配置 */
@@ -26,7 +28,7 @@ export const DEFAULT_BAITS: BaitConfig[] = [
     className: 'ad-banner ad_leaderboard',
     id: 'ad-container',
     innerHTML: '<span class="ad_text">Advertisement</span>',
-    confidence: 0.9,
+    confidence: 0.90,
     description: '通用广告 banner 容器',
   },
   {
@@ -50,6 +52,45 @@ export const DEFAULT_BAITS: BaitConfig[] = [
     id: 'ad-wrapper',
     confidence: 0.85,
     description: '广告占位容器',
+  },
+  // ── v1.1 新增 ──
+  {
+    className: 'adsbygoogle',
+    confidence: 0.91,
+    description: 'Google AdSense 常见 class',
+  },
+  {
+    className: '',
+    id: 'div-gpt-ad',
+    confidence: 0.87,
+    description: 'Google DFP 广告容器 ID',
+  },
+  {
+    className: 'google_ad',
+    id: 'google_ad',
+    innerHTML: '<ins class="adsbygoogle"></ins>',
+    confidence: 0.89,
+    description: 'Google Ad 复合诱饵',
+  },
+  {
+    className: 'pub_300x250 pub_300x250m pub_728x90 text-ad textAd text_ad text_ads text-ads text-ad-links',
+    confidence: 0.86,
+    description: '通用广告尺寸 + 文字广告 class 组合',
+  },
+  {
+    className: 'banner-ad-container adunit',
+    confidence: 0.80,
+    description: '通用 banner 广告容器组合',
+  },
+  {
+    className: 'ad_slot ad_unit',
+    confidence: 0.78,
+    description: '广告槽位',
+  },
+  {
+    className: 'advertisement ad-300x250',
+    confidence: 0.79,
+    description: '广告显示容器',
   },
 ];
 
@@ -123,7 +164,7 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
       if (resolved) return;
       resolved = true;
       clearTimeout(timer);
-      try { document.body.removeChild(el); } catch { /* */ }
+      try { el.remove(); } catch { try { document.body.removeChild(el); } catch { /* */ } }
       resolve(result);
     };
 
@@ -133,13 +174,11 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
     }, Math.min(timeout, 200));
 
     // 使用双重检查：rAF + setTimeout(0) 确保 AdBlock CSS 生效后再检测
-    // rAF 在后台标签页可能不触发，所以 setTimeout 兜底
     requestAnimationFrame(() => {
       const immediate = checkHidden();
       if (immediate.hidden) {
         finish(immediate);
       } else {
-        // rAF 检测不到时，再等一个微任务周期
         setTimeout(() => finish(checkHidden()), 50);
       }
     });

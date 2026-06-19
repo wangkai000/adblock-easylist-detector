@@ -12,6 +12,16 @@ const TEMP = '.temp';
 // Step 1: tsc compile
 console.log('📝 Compiling TypeScript...');
 execSync('npx tsc -p tsconfig.build.json', { stdio: 'inherit' });
+
+// Remove test .d.ts from dist
+import { readdirSync, unlinkSync, existsSync } from 'fs';
+import { join } from 'path';
+if (existsSync('dist')) {
+  for (const f of readdirSync('dist')) {
+    if (f.endsWith('.test.d.ts')) unlinkSync(join('dist', f));
+  }
+}
+
 console.log('✅ TypeScript compiled\n');
 
 // Step 2: rollup bundle
