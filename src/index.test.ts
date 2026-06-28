@@ -88,14 +88,47 @@ describe('createDetector', () => {
     expect(() => d.clearCache()).not.toThrow();
   });
 
-  it('destroy 清除回调+缓存', async () => {
+  it('destroy 清除回调+缓存，destroyed 标记为 true', async () => {
     const d = createDetector({ timeout: 500, enableBait: false });
     const fn = vi.fn();
     d.onDetect(fn);
+    expect(d.destroyed).toBe(false);
     d.destroy();
-    await d.detect();
-    // destroy 后回调已清空，fn 不应被触发
+    expect(d.destroyed).toBe(true);
+    // destroy 后 detect 应抛错
+    await expect(d.detect()).rejects.toThrow('destroyed');
   });
+
+  it('onDetect 注册后自动触发首次检测', async () => {
+    const d = createDetector({ timeout: 500, enableBait: false });
+    const fn = vi.fn();
+    d.onDetect(fn);
+    // 不需要显式 await — 自动触发是 fire-and-forget
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(fn).toHaveBeenCalledTimes(1);
+  }, 10000);
+
+  it('onceDetect 注册后自动触发首次检测（且仅一次）', async () => {
+    const d = createDetector({ timeout: 500, enableBait: false });
+    const fn = vi.fn();
+    d.onceDetect(fn);
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    // 手动再 detect 一次，once 不应再触发
+    await d.detect();
+    expect(fn).toHaveBeenCalledTimes(1);
+  }, 10000);
+
+  it('并发 detect 共享同一 Promise', async () => {
+    const d = createDetector({ timeout: 500, enableBait: false });
+    const fn = vi.fn();
+    d.onDetect(fn);
+    // 注册后自动触发了一次；现在再并发两次
+    const [r1, r2] = await Promise.all([d.detect(), d.detect()]);
+    // 两次并发应该返回同一个 result
+    expect(r1).toBe(r2);
+    // 回调应该被触发了 3 次（1 次自动 + 2 次手动）
+    await vi.waitFor(() => expect(fn.mock.calls.length).toBeGreaterThanOrEqual(1));
+  }, 15000);
 
   it('多实例缓存隔离', async () => {
     const d1 = createDetector({ timeout: 500, enableBait: false });

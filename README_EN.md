@@ -1,6 +1,12 @@
 # adblock-easylist-detector
 
-> Lightweight AdBlock detection using EasyList reverse-probing + CSS bait element detection.
+<div align="center">
+
+[简体中文](./README.md) | **English**
+
+</div>
+
+> Lightweight ad/content **blocker detector** using EasyList reverse-probing + CSS bait element detection. Detects not only AdBlock/AdBlock Plus, but also uBlock Origin, AdGuard, 1Blocker, Brave Shields, and any other EasyList-based blocker.
 
 ## Quick Start
 
@@ -14,7 +20,7 @@ import { createDetector } from 'adblock-easylist-detector';
 const { detected, confidence } = await createDetector().detect();
 
 if (detected) {
-  console.log(`AdBlock detected — confidence: ${(confidence * 100).toFixed(0)}%`);
+  console.log(`Blocker detected — confidence: ${(confidence * 100).toFixed(0)}%`);
 }
 ```
 
@@ -26,7 +32,7 @@ if (detected) {
 
 | Method | How | Weight |
 |--------|-----|:------:|
-| **Network Probe** | Requests resources from high-hit-rate EasyList ad domains; blocked = AdBlocker present | 60% |
+| **Network Probe** | Requests resources from high-hit-rate EasyList ad domains; blocked = a blocker is present | 60% |
 | **Bait Detection** | Injects DOM elements with ad-like class/id attributes, checks if CSS rules hide them | 40% |
 
 Weighted combination for higher accuracy than either method alone.
@@ -92,7 +98,7 @@ const detector = createDetector({
 
 ```ts
 {
-  detected: boolean;        // AdBlock detected?
+  detected: boolean;        // Blocker detected?
   confidence: number;       // Overall confidence 0–1
   blockedCount: number;     // Network probes blocked
   totalCount: number;       // Total network probes
@@ -159,7 +165,7 @@ const d = createDetector();
 d.onDetect((result) => {
   if (result.detected) {
     // Show warning, fire analytics, redirect…
-    reportAdBlock(result.confidence);
+    reportBlocker(result.confidence);
   }
 });
 
@@ -200,7 +206,7 @@ const r = await getInstance().detect();
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-async function initAdBlockCheck() {
+async function initBlockerCheck() {
   // 1. Create detector — focused on Google + platform-specific rules
   const detector = createDetector({
     timeout: 4000,
@@ -219,12 +225,12 @@ async function initAdBlockCheck() {
   detector.onDetect((result) => {
     if (result.detected) {
       console.warn(
-        `[AdBlock] Blocker detected | confidence:${(result.confidence * 100).toFixed(0)}% ` +
+        `[Blocker] Blocker detected | confidence:${(result.confidence * 100).toFixed(0)}% ` +
         `| network:${result.blockedCount}/${result.totalCount} ` +
         `| bait:${result.baitHiddenCount}/${result.baitTotalCount} ` +
         `| time:${result.totalDuration}ms`
       );
-      showAdBlockNotice(result.confidence);
+      showBlockerNotice(result.confidence);
     }
   });
 
@@ -232,7 +238,7 @@ async function initAdBlockCheck() {
   let result = await detector.detect();
 
   if (result.fromCache) {
-    console.log('[AdBlock] Cache hit, skipping probe');
+    console.log('[Blocker] Cache hit, skipping probe');
     return;
   }
 
@@ -245,7 +251,7 @@ async function initAdBlockCheck() {
 
   // 5. Too slow? Disable baits for next round (performance-sensitive)
   if (result.totalDuration > 3000) {
-    console.warn('[AdBlock] Detection took too long, disabling baits next time');
+    console.warn('[Blocker] Detection took too long, disabling baits next time');
     const fastDetector = createDetector({
       enableBait: false,
       activeRules: detector.getActiveRules(),
@@ -260,7 +266,7 @@ async function initAdBlockCheck() {
   console.log('Available (not active):', disabledRules.map(r => `${r.id} (${r.description})`));
 }
 
-function showAdBlockNotice(confidence: number) {
+function showBlockerNotice(confidence: number) {
   // Your business logic: modal, redirect, analytics…
 }
 ```
@@ -281,7 +287,7 @@ UMD global: `AdblockEasylistDetector`
 <script>
   var d = AdblockEasylistDetector.createDetector();
   d.detect().then(function(r) {
-    console.log('AdBlock:', r.detected);
+    console.log('Blocker detected:', r.detected);
   });
 </script>
 ```
@@ -302,7 +308,7 @@ UMD global: `AdblockEasylistDetector`
 
 ### Network Probing
 
-- **`<script>`** — Most reliable; AdBlock intercepts script loading (`onerror`)
+- **`<script>`** — Most reliable; the blocker intercepts script loading (`onerror`)
 - **`<img>`** — Image request blocking is also common
 - **fetch no-cors + image fallback** — For XHR-type rules; no-cors fetch may return opaque responses (false negatives), so an image probe confirms
 

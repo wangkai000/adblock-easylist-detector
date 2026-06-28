@@ -1,6 +1,12 @@
 # adblock-easylist-detector
 
-> 基于 EasyList 规则反向探测 + CSS 诱饵双重检测的轻量 AdBlock 检测插件。
+<div align="center">
+
+**简体中文** | [English](./README_EN.md)
+
+</div>
+
+> 基于 EasyList 规则反向探测 + CSS 诱饵双重检测的轻量**广告/内容拦截器检测插件**。可识别 AdBlock、AdBlock Plus、uBlock Origin、AdGuard、1Blocker、Brave Shields 等所有基于 EasyList 规则的拦截器。
 
 ## 一分钟上手
 
@@ -14,7 +20,7 @@ import { createDetector } from 'adblock-easylist-detector';
 const { detected, confidence } = await createDetector().detect();
 
 if (detected) {
-  console.log(`检测到 AdBlock，置信度 ${(confidence * 100).toFixed(0)}%`);
+  console.log(`检测到拦截器，置信度 ${(confidence * 100).toFixed(0)}%`);
 }
 ```
 
@@ -26,7 +32,7 @@ if (detected) {
 
 | 方式 | 原理 | 权重 |
 |------|------|:----:|
-| **网络探测** | 加载 EasyList 中高命中率广告域名的资源，被拦截=有 AdBlock | 60% |
+| **网络探测** | 加载 EasyList 中高命中率广告域名的资源，被拦截=存在拦截器 | 60% |
 | **诱饵检测** | 插入带广告特征 class/id 的 DOM 元素，检查是否被 CSS 规则隐藏 | 40% |
 
 两种方式加权综合，比单方案准确率更高。
@@ -43,6 +49,8 @@ if (detected) {
 | 第三方广告 | 2 | Taboola、Outbrain |
 
 每条规则带有置信度（0.62~0.95），默认启用 10 条高覆盖低误报的核心规则。
+
+由于基于 EasyList，**任何遵循该规则集的拦截器**（AdBlock、AdBlock Plus、uBlock Origin、AdGuard、1Blocker、Brave Shields 等）都能被识别。
 
 ---
 
@@ -92,7 +100,7 @@ const detector = createDetector({
 
 ```ts
 {
-  detected: boolean;        // 是否检测到 AdBlock
+  detected: boolean;        // 是否检测到拦截器
   confidence: number;       // 综合置信度 0~1
   blockedCount: number;     // 网络探测被拦截数
   totalCount: number;       // 网络探测总数
@@ -204,7 +212,7 @@ const r = await getInstance().detect();
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-async function initAdBlockCheck() {
+async function initBlockerCheck() {
   // 1. 创建检测器——国内站侧重百度+腾讯
   const detector = createDetector({
     timeout: 4000,
@@ -222,14 +230,14 @@ async function initAdBlockCheck() {
   detector.onDetect((result) => {
     if (result.detected) {
       console.warn(
-        `[AdBlock] 检测到拦截器 | 置信度:${(result.confidence * 100).toFixed(0)}% ` +
+        `[Blocker] 检测到拦截器 | 置信度:${(result.confidence * 100).toFixed(0)}% ` +
         `| 网络:${result.blockedCount}/${result.totalCount} ` +
         `| 诱饵:${result.baitHiddenCount}/${result.baitTotalCount} ` +
         `| 耗时:${result.totalDuration}ms`
       );
 
       // 展示友好提示
-      showAdBlockNotice(result.confidence);
+      showBlockerNotice(result.confidence);
     }
   });
 
@@ -237,7 +245,7 @@ async function initAdBlockCheck() {
   let result = await detector.detect();
 
   if (result.fromCache) {
-    console.log('[AdBlock] 命中缓存，跳过探测');
+    console.log('[Blocker] 命中缓存，跳过探测');
     return;
   }
 
@@ -250,7 +258,7 @@ async function initAdBlockCheck() {
 
   // 5. 按需禁用诱饵检测（性能敏感场景）
   if (result.totalDuration > 3000) {
-    console.warn('[AdBlock] 检测耗时过长，下次关闭诱饵');
+    console.warn('[Blocker] 检测耗时过长，下次关闭诱饵');
     // 重建实例去掉诱饵
     const fastDetector = createDetector({
       enableBait: false,
@@ -266,7 +274,7 @@ async function initAdBlockCheck() {
   console.log('未启用的规则:', disabledRules.map(r => `${r.id}(${r.description})`));
 }
 
-function showAdBlockNotice(confidence: number) {
+function showBlockerNotice(confidence: number) {
   // 你的业务逻辑：弹窗、跳转、打点…
 }
 ```
@@ -287,7 +295,7 @@ UMD 全局名为 `AdblockEasylistDetector`：
 <script>
   var d = AdblockEasylistDetector.createDetector();
   d.detect().then(function(r) {
-    console.log('AdBlock:', r.detected);
+    console.log('Blocker detected:', r.detected);
   });
 </script>
 ```
@@ -308,7 +316,7 @@ UMD 全局名为 `AdblockEasylistDetector`：
 
 ### 网络探测
 
-- **`<script>`** — 最可靠，AdBlock 直接拦截脚本加载（`onerror`）
+- **`<script>`** — 最可靠，拦截器直接拦截脚本加载（`onerror`）
 - **`<img>`** — 图片请求拦截也很常见
 - **fetch no-cors + 图片二次验证** — 针对 XHR 类型规则，no-cors fetch 可能返回 opaque response 误判
 

@@ -119,8 +119,10 @@ export interface AdblockDetector {
   stopPolling(): void;
   /** 清除缓存 */
   clearCache(): void;
-  /** 销毁实例（清缓存+清回调+停止轮询） */
+  /** 销毁实例（清缓存+清回调+停止轮询），销毁后 detect() 将 throw */
   destroy(): void;
+  /** 实例是否已销毁（只读） */
+  readonly destroyed: boolean;
   /** 当前配置（只读） */
   readonly options: Readonly<Required<Omit<DetectorOptions, 'category' | 'minConfidence' | 'baits'>> & DetectorOptions>;
   /** 版本号 */
@@ -146,17 +148,18 @@ class PollingControllerImpl implements PollingController {
   private _interval: number;
   private _hiddenMultiplier: number;
   private _maxPolls: number;
-  private _detector: ReturnType<typeof createDetectorInternal>;
+  /** 跑探测（带并发去重）的外层函数 */
+  private _runDetect: () => Promise<DetectionResult>;
   private _rafId: number | null = null;
   private _lastTick = 0;
   private _visibilityHandler: (() => void) | null = null;
   private _effectiveInterval: number;
 
   constructor(
-    detector: ReturnType<typeof createDetectorInternal>,
+    runDetect: () => Promise<DetectionResult>,
     options: PollingOptions = {},
   ) {
-    this._detector = detector;
+    this._runDetect = runDetect;
     this._interval = options.interval ?? 5000;
     this._hiddenMultiplier = options.hiddenMultiplier ?? 3;
     this._maxPolls = options.maxPolls ?? Infinity;
@@ -213,28 +216,18 @@ class PollingControllerImpl implements PollingController {
   private _doCheck = async (): Promise<DetectionResult> => {
     if (this._pollCount >= this._maxPolls) {
       this.stop();
-      return this._lastResult!;
+      return this._lastResult ?? ({} as DetectionResult);
     }
 
     this._pollCount++;
     try {
-      const result = await this._detector.detect();
+      // 走外层 runDetect — 自动获得并发去重 + 回调 + 状态变化判断
+      const result = await this._runDetect();
       this._lastResult = result;
-
-      // 触发 onDetect 回调
-      this._detector._emitDetect(result);
-
-      // 触发 onDetectedChange 回调（仅在状态变化时）
-      const prev = this._detector._lastResult;
-      if (!prev || prev.detected !== result.detected) {
-        this._detector._emitChange(result, prev);
-      }
-      this._detector._lastResult = result;
-
       return result;
     } catch {
       // 检测异常时静默继续
-      return this._lastResult!;
+      return this._lastResult ?? ({} as DetectionResult);
     }
   };
 
@@ -269,9 +262,8 @@ class PollingControllerImpl implements PollingController {
 
 interface InternalDetector {
   detect(): Promise<DetectionResult>;
-  _emitDetect(result: DetectionResult): void;
-  _emitChange(result: DetectionResult, prev: DetectionResult | null): void;
-  _lastResult: DetectionResult | null;
+  /** 上一次检测结果（用于状态变化判断） */
+  lastResult(): DetectionResult | null;
 }
 
 function createDetectorInternal(
@@ -279,12 +271,11 @@ function createDetectorInternal(
   callbacks: CallbackManager,
   changeCallbacks: CallbackManager,
   _id: string,
-): InternalDetector & { detect: () => Promise<DetectionResult> } {
+): InternalDetector {
   let _lastResult: DetectionResult | null = null;
 
   return {
-    get _lastResult() { return _lastResult; },
-    set _lastResult(r: DetectionResult | null) { _lastResult = r; },
+    lastResult() { return _lastResult; },
 
     async detect(): Promise<DetectionResult> {
       const ruleIds = opts.activeRules ?? DEFAULT_ACTIVE_RULE_IDS;
@@ -313,21 +304,14 @@ function createDetectorInternal(
       // 触发 onDetect 回调
       callbacks.emit(result);
 
-      // 触发 onDetectedChange 回调
-      if (!_lastResult || _lastResult.detected !== result.detected) {
-        changeCallbacks.emitWithPrev(result, _lastResult);
+      // 触发 onDetectedChange 回调（仅在状态变化时）
+      const prev = _lastResult;
+      if (!prev || prev.detected !== result.detected) {
+        changeCallbacks.emitWithPrev(result, prev);
       }
       _lastResult = result;
 
       return result;
-    },
-
-    _emitDetect(result: DetectionResult): void {
-      callbacks.emit(result);
-    },
-
-    _emitChange(result: DetectionResult, prev: DetectionResult | null): void {
-      changeCallbacks.emitWithPrev(result, prev);
     },
   };
 }
@@ -365,6 +349,8 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
   const internal = createDetectorInternal(_opts, callbacks, changeCallbacks, _id);
 
   let polling: PollingControllerImpl | null = null;
+  let _pendingDetect: Promise<DetectionResult> | null = null;
+  let _destroyed = false;
 
   const debug = (...args: any[]) => {
     if (_opts.debug && typeof console !== 'undefined') {
@@ -372,20 +358,50 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
     }
   };
 
+  function runDetect(): Promise<DetectionResult> {
+    if (_destroyed) {
+      return Promise.reject(new Error('[AdblockDetector] Instance has been destroyed'));
+    }
+    if (_pendingDetect) return _pendingDetect;
+
+    _pendingDetect = (async () => {
+      try {
+        const result = await internal.detect();
+        return result;
+      } finally {
+        _pendingDetect = null;
+      }
+    })();
+
+    return _pendingDetect;
+  }
+
+  function scheduleAutoDetect(): void {
+    if (_destroyed || _pendingDetect) return;
+    runDetect();
+  }
+
   return {
     get options() {
       // 返回只读快照
       return Object.freeze({ ..._opts }) as AdblockDetector['options'];
     },
+    get destroyed() { return _destroyed; },
     version: VERSION,
 
     async detect(): Promise<DetectionResult> {
       debug('detect() called');
-      return internal.detect();
+      return runDetect();
     },
 
-    onDetect(fn) { callbacks.on(fn); },
-    onceDetect(fn) { callbacks.once(fn); },
+    onDetect(fn) {
+      callbacks.on(fn);
+      scheduleAutoDetect();
+    },
+    onceDetect(fn) {
+      callbacks.once(fn);
+      scheduleAutoDetect();
+    },
     offDetect(fn) { callbacks.off(fn); },
 
     onDetectedChange(fn) {
@@ -399,7 +415,8 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
       if (polling) {
         polling.stop();
       }
-      polling = new PollingControllerImpl(internal, pollOpts);
+      // 把外层 runDetect 喂给 polling，自动获得并发去重
+      polling = new PollingControllerImpl(runDetect, pollOpts);
       polling.start();
       debug('startPolling()', { interval: pollOpts.interval ?? 5000 });
       return polling;
@@ -420,6 +437,8 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
 
     destroy() {
       this.stopPolling();
+      _destroyed = true;
+      _pendingDetect = null;
       clearEngineCache(_id);
       callbacks.clear();
       changeCallbacks.clear();

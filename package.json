@@ -1,64 +1,67 @@
 ﻿{
-    "name":  "adblock-easylist-detector",
-    "version":  "1.2.0",
-    "description":  "Detect AdBlock via EasyList rule reverse-probing + CSS bait element dual detection. v1.1: polling, onChange, 32 rules, 12 baits, crypto random, concurrency control.",
-    "main":  "dist/adblock-easylist-detector.umd.js",
-    "module":  "dist/adblock-easylist-detector.esm.js",
-    "types":  "dist/index.d.ts",
-    "exports":  {
-                    ".":  {
-                              "import":  {
-                                             "types":  "./dist/index.d.ts",
-                                             "default":  "./dist/adblock-easylist-detector.esm.js"
-                                         },
-                              "require":  {
-                                              "types":  "./dist/index.d.ts",
-                                              "default":  "./dist/adblock-easylist-detector.umd.js"
-                                          }
-                          },
-                    "./detector":  {
-                                       "import":  "./dist/detector.esm.js",
-                                       "require":  "./dist/detector.umd.js"
-                                   },
-                    "./bait-detector":  {
-                                            "import":  "./dist/bait-detector.esm.js",
-                                            "require":  "./dist/bait-detector.umd.js"
-                                        },
-                    "./resource-generator":  {
-                                                 "import":  "./dist/resource-generator.esm.js",
-                                                 "require":  "./dist/resource-generator.umd.js"
-                                             },
-                    "./callback":  {
-                                       "import":  "./dist/callback.esm.js",
-                                       "require":  "./dist/callback.umd.js"
-                                   }
-                },
-    "files":  [
-                  "dist"
-              ],
-    "scripts":  {
-                    "build":  "node build.mjs",
-                    "clean":  "node -e \"require(\u0027fs\u0027).rmSync(\u0027.temp\u0027,{recursive:true,force:true});require(\u0027fs\u0027).rmSync(\u0027dist\u0027,{recursive:true,force:true});console.log(\u0027cleaned\u0027)\"",
-                    "test":  "vitest run",
-                    "test:watch":  "vitest"
-                },
-    "keywords":  [
-                     "adblock",
-                     "easylist",
-                     "detector",
-                     "ad-detect",
-                     "adblock-detection",
-                     "polling"
-                 ],
-    "license":  "MIT",
-    "devDependencies":  {
-                            "@rollup/plugin-node-resolve":  "^16.0.3",
-                            "@rollup/plugin-terser":  "^0.4.4",
-                            "@rollup/plugin-typescript":  "^11.1.6",
-                            "jsdom":  "^29.1.1",
-                            "rollup":  "^4.18.0",
-                            "tslib":  "^2.6.3",
-                            "vitest":  "^3.1.4",
-                            "typescript":  "^5.5.0"
-                        }
+  "name": "adblock-easylist-detector",
+  "version": "1.2.0",
+  "description": "Detect AdBlock via EasyList rule reverse-probing + CSS bait element dual detection. v1.1: polling, onChange, 32 rules, 12 baits, crypto random, concurrency control.",
+  "main": "dist/adblock-easylist-detector.umd.js",
+  "module": "dist/adblock-easylist-detector.esm.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/adblock-easylist-detector.esm.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/adblock-easylist-detector.umd.js"
+      }
+    },
+    "./detector": {
+      "import": "./dist/detector.esm.js",
+      "require": "./dist/detector.umd.js"
+    },
+    "./bait-detector": {
+      "import": "./dist/bait-detector.esm.js",
+      "require": "./dist/bait-detector.umd.js"
+    },
+    "./resource-generator": {
+      "import": "./dist/resource-generator.esm.js",
+      "require": "./dist/resource-generator.umd.js"
+    },
+    "./callback": {
+      "import": "./dist/callback.esm.js",
+      "require": "./dist/callback.umd.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "clean": "node -e \"require('fs').rmSync('.temp',{recursive:true,force:true});require('fs').rmSync('dist',{recursive:true,force:true});console.log('cleaned')\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write \"**/*.{ts,mjs,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,mjs,js,json,md}\""
+  },
+  "keywords": [
+    "adblock",
+    "easylist",
+    "detector",
+    "ad-detect",
+    "adblock-detection",
+    "polling"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.3.3",
+    "rollup": "^4.18.0",
+    "tslib": "^2.6.3",
+    "typescript": "^5.5.0",
+    "vitest": "^3.1.4"
+  }
 }
