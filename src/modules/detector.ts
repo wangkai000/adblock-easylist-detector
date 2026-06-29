@@ -54,7 +54,7 @@ export interface DetectionResult {
 /* ── 缓存 ── */
 
 const CACHE_KEY_PREFIX = '__aed_cache_';
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 60 * 1000; // v1.3: 5min → 60s，更快感知 AdBlock 状态变化
 
 /** 生成实例级缓存 key，避免多实例冲突 */
 function getCacheKey(instanceId: string): string {
@@ -130,7 +130,7 @@ export function setCacheInstanceId(id: string): void {
  *
  * P0-1 fix: timeout 路径统一调用 cleanupFns 清理 DOM/连接
  */
-function probeResource(resource: TestResource, timeout: number): Promise<SingleResult> {
+export function probeResource(resource: TestResource, timeout: number): Promise<SingleResult> {
   const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
   return new Promise<SingleResult>((resolve) => {
