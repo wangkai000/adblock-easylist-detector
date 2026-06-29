@@ -1,6 +1,6 @@
 # adblock-easylist-detector
 
-> Lightweight AdBlock detection using EasyList reverse-probing + CSS bait element detection.  
+> Lightweight AdBlock detection using [EasyList](https://easylist.to/) reverse-probing + CSS bait element detection.  
 > Supports ESM / UMD — use via npm or directly in the browser.
 
 ```ts
@@ -248,7 +248,7 @@ d.destroy(); // Clears cache + callbacks + stops polling
 
 ## 📖 Built-in Rules
 
-32 EasyList high-hit rules covering major ad platforms:
+32 [EasyList](https://easylist.to/) high-hit rules covering major ad platforms:
 
 | Category    | Count | Examples                                                   |
 | :---------- | :---: | :--------------------------------------------------------- |

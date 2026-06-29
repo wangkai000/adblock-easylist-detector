@@ -1,6 +1,6 @@
 # adblock-easylist-detector
 
-> 基于 EasyList 规则反向探测 + CSS 诱饵双重检测的轻量 AdBlock 检测插件。  
+> 基于 [EasyList](https://easylist.to/) 规则反向探测 + CSS 诱饵双重检测的轻量 AdBlock 检测插件。  
 > 支持 ESM / UMD，浏览器直接使用或通过 npm 引入。
 
 ```ts
@@ -251,7 +251,7 @@ d.destroy(); // 清缓存 + 清回调 + 停止轮询，彻底释放
 
 ## 📖 内置规则
 
-内置 32 条 EasyList 高命中规则，覆盖主流广告平台：
+内置 32 条 [EasyList](https://easylist.to/) 高命中规则，覆盖主流广告平台：
 
 | 分类       | 数量 | 代表规则                                                         |
 | :--------- | :--: | :--------------------------------------------------------------- |
