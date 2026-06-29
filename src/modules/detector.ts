@@ -87,7 +87,7 @@ function readCache(instanceId: string): DetectionResult | null {
 function writeCache(result: DetectionResult, instanceId: string): void {
   try {
     if (typeof sessionStorage === 'undefined') return;
-    const entry: CacheEntry = { result: { ...result, fromCache: false }, savedAt: Date.now() };
+    const entry: CacheEntry = { result: { ...result }, savedAt: Date.now() };
     sessionStorage.setItem(getCacheKey(instanceId), JSON.stringify(entry));
   } catch { /* quota exceeded or storage disabled */ }
 }
@@ -214,7 +214,9 @@ function probeResource(resource: TestResource, timeout: number): Promise<SingleR
               clearTimeout(imgTimer);
               safeDone(true, 'FETCH_IMAGE_BLOCKED');
             };
-            img.src = resource.url;
+            // 追加二次随机参数防缓存命中
+            const cacheBust = resource.url.includes('?') ? '&' : '?';
+            img.src = resource.url + cacheBust + '_cb2=' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
           })
           .catch((err: unknown) => {
             clearTimeout(fetchTimer);
@@ -260,7 +262,19 @@ async function promiseAllLimit<T>(tasks: Array<() => Promise<T>>, limit: number)
   async function worker(): Promise<void> {
     while (idx < tasks.length) {
       const i = idx++;
-      results[i] = await tasks[i]();
+      try {
+        results[i] = await tasks[i]();
+      } catch (err) {
+        // 错误隔离：单个 probe 失败不影响其他
+        // probeResource 内部已有 try-catch，这是兜底
+        results[i] = {
+          ruleIndex: i,
+          url: '',
+          blocked: false,
+          duration: 0,
+          error: err instanceof Error ? err.message : 'WORKER_EXCEPTION',
+        } as T;
+      }
     }
   }
 

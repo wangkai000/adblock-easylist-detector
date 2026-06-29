@@ -278,8 +278,8 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'param',
     confidence: 0.75,
     description: '查询参数 ad_type',
-    urlTemplate: '/api/v1/feed?ad_type=banner&v={RAND}',
-    resourceType: 'xmlhttprequest',
+    urlTemplate: 'https://pagead2.googlesyndication.com/pagead/ads?ad_type=banner&v={RAND}',
+    resourceType: 'script',
   },
   {
     id: 'ad-unit-param',
@@ -287,8 +287,8 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'param',
     confidence: 0.68,
     description: '查询参数 ad_unit',
-    urlTemplate: '/api/v1/ads?ad_unit=leaderboard&cb={RAND}',
-    resourceType: 'xmlhttprequest',
+    urlTemplate: 'https://adservice.google.com/ads?ad_unit=leaderboard&cb={RAND}',
+    resourceType: 'image',
   },
 
   // ── 更多第三方 ──

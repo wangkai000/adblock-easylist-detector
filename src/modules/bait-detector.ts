@@ -124,6 +124,32 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
       return;
     }
 
+    // v1.3: 对照组检查 — 宿主页面自身CSS误判防护
+    let skipThisBait = false;
+    if (bait.className) {
+      // 临时创建引用元素检查自然状态
+      const refEl = document.createElement('div');
+      refEl.className = bait.className;
+      refEl.style.cssText = 'position:absolute!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;pointer-events:none!important;';
+      document.body.appendChild(refEl);
+      const refStyle = window.getComputedStyle(refEl);
+      if (refStyle.display === 'none' || refStyle.visibility === 'hidden') {
+        // 页面自身有隐藏该 class 的规则 → 该诱饵不可靠，标记跳过
+        skipThisBait = true;
+      }
+      try { refEl.remove(); } catch { /* */ }
+    }
+    if (skipThisBait) {
+      resolve({
+        baitIndex: index,
+        hidden: false,
+        reason: 'none',
+        confidence: 0,  // 权重降为0，不参与置信度计算
+        description: bait.description + ' [skipped: page has hidden rule for this class]',
+      });
+      return;
+    }
+
     const el = document.createElement('div');
     el.className = bait.className;
     if (bait.id) el.id = bait.id;

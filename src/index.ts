@@ -213,7 +213,19 @@ class PollingControllerImpl implements PollingController {
   private _doCheck = async (): Promise<DetectionResult> => {
     if (this._pollCount >= this._maxPolls) {
       this.stop();
-      return this._lastResult!;
+      return this._lastResult ?? {
+        detected: false,
+        confidence: 0,
+        blockedCount: 0,
+        totalCount: 0,
+        details: [],
+        baitResults: [],
+        baitHiddenCount: 0,
+        baitTotalCount: 0,
+        totalDuration: 0,
+        fromCache: false,
+        timestamp: Date.now(),
+      };
     }
 
     this._pollCount++;
@@ -234,7 +246,23 @@ class PollingControllerImpl implements PollingController {
       return result;
     } catch {
       // 检测异常时静默继续
-      return this._lastResult!;
+      if (this._lastResult) {
+        return this._lastResult;
+      }
+      // 首次检测就异常：返回安全默认值，避免 null 导致调用方崩溃
+      return {
+        detected: false,
+        confidence: 0,
+        blockedCount: 0,
+        totalCount: 0,
+        details: [],
+        baitResults: [],
+        baitHiddenCount: 0,
+        baitTotalCount: 0,
+        totalDuration: 0,
+        fromCache: false,
+        timestamp: Date.now(),
+      };
     }
   };
 
