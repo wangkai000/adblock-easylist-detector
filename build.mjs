@@ -11,7 +11,7 @@ const TEMP = '.temp';
 
 // Step 1: tsc compile
 console.log('📝 Compiling TypeScript...');
-execSync('npx tsc -p tsconfig.build.json', { stdio: 'inherit' });
+execSync('node node_modules/typescript/bin/tsc -p tsconfig.build.json', { stdio: 'inherit' });
 
 // Remove test .d.ts from dist
 import { readdirSync, unlinkSync, existsSync } from 'fs';

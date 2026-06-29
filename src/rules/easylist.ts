@@ -213,7 +213,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.88,
     description: '通用 ads.js 广告脚本',
-    urlTemplate: '/ads.js?cb={RAND}',
+    urlTemplate: 'https://s.ads.com/ads.js?cb={RAND}',
     resourceType: 'script',
   },
   {
@@ -222,7 +222,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.85,
     description: '通用广告 banner 图片路径',
-    urlTemplate: '/ad/banner/728x90.jpg?z={RAND}',
+    urlTemplate: 'https://s.ads.com/ad/banner/728x90.jpg?z={RAND}',
     resourceType: 'image',
   },
   {
@@ -231,7 +231,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.72,
     description: '通用 banner GIF 广告路径',
-    urlTemplate: '/banner/468x60.gif?z={RAND}',
+    urlTemplate: 'https://s.ads.com/banner/468x60.gif?z={RAND}',
     resourceType: 'image',
   },
   {
@@ -240,7 +240,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.75,
     description: '通用 advertisement 脚本路径',
-    urlTemplate: '/advertisement/advertisement.js?cb={RAND}',
+    urlTemplate: 'https://s.ads.com/advertisement/advertisement.js?cb={RAND}',
     resourceType: 'script',
   },
   {
@@ -249,7 +249,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.73,
     description: '通用 adverts 脚本路径',
-    urlTemplate: '/adverts/adverts.js?cb={RAND}',
+    urlTemplate: 'https://s.ads.com/adverts/adverts.js?cb={RAND}',
     resourceType: 'script',
   },
   {
@@ -258,7 +258,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.68,
     description: '弹窗广告脚本路径',
-    urlTemplate: '/popunder/popunder.js?cb={RAND}',
+    urlTemplate: 'https://s.ads.com/popunder/popunder.js?cb={RAND}',
     resourceType: 'script',
   },
   {
@@ -267,7 +267,7 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'path',
     confidence: 0.70,
     description: '通用广告图片路径',
-    urlTemplate: '/adv/300x250.jpg?z={RAND}',
+    urlTemplate: 'https://s.ads.com/adv/300x250.jpg?z={RAND}',
     resourceType: 'image',
   },
 
@@ -278,8 +278,8 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'param',
     confidence: 0.75,
     description: '查询参数 ad_type',
-    urlTemplate: '/api/v1/feed?ad_type=banner&v={RAND}',
-    resourceType: 'xmlhttprequest',
+    urlTemplate: 'https://pagead2.googlesyndication.com/pagead/ads?ad_type=banner&v={RAND}',
+    resourceType: 'image',
   },
   {
     id: 'ad-unit-param',
@@ -287,8 +287,8 @@ export const EASYLIST_RULES: EasyListRule[] = [
     category: 'param',
     confidence: 0.68,
     description: '查询参数 ad_unit',
-    urlTemplate: '/api/v1/ads?ad_unit=leaderboard&cb={RAND}',
-    resourceType: 'xmlhttprequest',
+    urlTemplate: 'https://adservice.google.com/ads?ad_unit=leaderboard&cb={RAND}',
+    resourceType: 'image',
   },
 
   // ── 更多第三方 ──

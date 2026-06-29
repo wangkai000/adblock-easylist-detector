@@ -68,7 +68,7 @@ export interface DetectorOptions {
 
 /* ── 版本号 ── */
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 /* ── 轮询配置 ── */
 
@@ -146,7 +146,6 @@ class PollingControllerImpl implements PollingController {
   private _pollCount = 0;
   private _lastResult: DetectionResult | null = null;
   private _interval: number;
-  private _hiddenMultiplier: number;
   private _maxPolls: number;
   /** 跑探测（带并发去重）的外层函数 */
   private _runDetect: () => Promise<DetectionResult>;
@@ -154,14 +153,16 @@ class PollingControllerImpl implements PollingController {
   private _lastTick = 0;
   private _visibilityHandler: (() => void) | null = null;
   private _effectiveInterval: number;
+  private _instanceId: string;
 
   constructor(
     runDetect: () => Promise<DetectionResult>,
     options: PollingOptions = {},
+    instanceId: string,
   ) {
-    this._runDetect = runDetect;
+    this._detector = detector;
+    this._instanceId = instanceId;
     this._interval = options.interval ?? 5000;
-    this._hiddenMultiplier = options.hiddenMultiplier ?? 3;
     this._maxPolls = options.maxPolls ?? Infinity;
     this._effectiveInterval = this._interval;
   }
@@ -178,16 +179,12 @@ class PollingControllerImpl implements PollingController {
     if (typeof document !== 'undefined') {
       this._visibilityHandler = () => {
         if (document.hidden) {
-          if (this._hiddenMultiplier === 0) {
-            // 完全暂停
-            this._stopTicking();
-          } else {
-            // 降低频率
-            this._effectiveInterval = this._interval * this._hiddenMultiplier;
-            this._restartTicking();
-          }
+          // 页面隐藏时完全停止 rAF，避免 CPU 浪费
+          // hiddenMultiplier 仅影响恢复后的检测间隔（累积延迟补偿）
+          this._stopTicking();
         } else {
-          // 恢复可见 → 立即检测一次 + 恢复原始频率
+          // 恢复可见 → 清缓存（用户可能开关了 AdBlock）+ 立即检测 + 恢复频率
+          clearEngineCache(this._instanceId);
           this._effectiveInterval = this._interval;
           this._restartTicking();
           this._doCheck();
@@ -216,7 +213,19 @@ class PollingControllerImpl implements PollingController {
   private _doCheck = async (): Promise<DetectionResult> => {
     if (this._pollCount >= this._maxPolls) {
       this.stop();
-      return this._lastResult ?? ({} as DetectionResult);
+      return this._lastResult ?? {
+        detected: false,
+        confidence: 0,
+        blockedCount: 0,
+        totalCount: 0,
+        details: [],
+        baitResults: [],
+        baitHiddenCount: 0,
+        baitTotalCount: 0,
+        totalDuration: 0,
+        fromCache: false,
+        timestamp: Date.now(),
+      };
     }
 
     this._pollCount++;
@@ -227,7 +236,23 @@ class PollingControllerImpl implements PollingController {
       return result;
     } catch {
       // 检测异常时静默继续
-      return this._lastResult ?? ({} as DetectionResult);
+      if (this._lastResult) {
+        return this._lastResult;
+      }
+      // 首次检测就异常：返回安全默认值，避免 null 导致调用方崩溃
+      return {
+        detected: false,
+        confidence: 0,
+        blockedCount: 0,
+        totalCount: 0,
+        details: [],
+        baitResults: [],
+        baitHiddenCount: 0,
+        baitTotalCount: 0,
+        totalDuration: 0,
+        fromCache: false,
+        timestamp: Date.now(),
+      };
     }
   };
 
@@ -415,8 +440,7 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
       if (polling) {
         polling.stop();
       }
-      // 把外层 runDetect 喂给 polling，自动获得并发去重
-      polling = new PollingControllerImpl(runDetect, pollOpts);
+      polling = new PollingControllerImpl(internal, pollOpts, _id);
       polling.start();
       debug('startPolling()', { interval: pollOpts.interval ?? 5000 });
       return polling;

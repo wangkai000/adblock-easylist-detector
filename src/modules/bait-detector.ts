@@ -124,6 +124,33 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
       return;
     }
 
+    // v1.3: 对照组检查 — 宿主页面自身CSS误判防护
+    let skipThisBait = false;
+    if (bait.className || bait.id) {
+      // 临时创建引用元素检查自然状态
+      const refEl = document.createElement('div');
+      refEl.className = bait.className;
+      if (bait.id) refEl.id = bait.id;
+      refEl.style.cssText = 'position:absolute!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;pointer-events:none!important;';
+      document.body.appendChild(refEl);
+      const refStyle = window.getComputedStyle(refEl);
+      if (refStyle.display === 'none' || refStyle.visibility === 'hidden') {
+        // 页面自身有隐藏该 class/id 的规则 → 该诱饵不可靠，标记跳过
+        skipThisBait = true;
+      }
+      try { refEl.remove(); } catch { /* */ }
+    }
+    if (skipThisBait) {
+      resolve({
+        baitIndex: index,
+        hidden: false,
+        reason: 'none',
+        confidence: 0,  // 权重降为0，不参与置信度计算
+        description: bait.description + ' [skipped: page has hidden rule for this class]',
+      });
+      return;
+    }
+
     const el = document.createElement('div');
     el.className = bait.className;
     if (bait.id) el.id = bait.id;
@@ -157,6 +184,15 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
         return { baitIndex: index, hidden: true, reason: 'zero_size', confidence: bait.confidence, description: bait.description };
       }
 
+      // 检查子元素是否被隐藏（AdBlock 可能只隐藏子元素如 ins.adsbygoogle）
+      for (let i = 0; i < el.children.length; i++) {
+        const child = el.children[i] as HTMLElement;
+        const childStyle = window.getComputedStyle(child);
+        if (childStyle.display === 'none' || childStyle.visibility === 'hidden') {
+          return { baitIndex: index, hidden: true, reason: 'display_none', confidence: bait.confidence, description: bait.description };
+        }
+      }
+
       return { baitIndex: index, hidden: false, reason: 'none', confidence: bait.confidence, description: bait.description };
     };
 
@@ -173,13 +209,14 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
       finish(checkHidden());
     }, Math.min(timeout, 200));
 
-    // 使用双重检查：rAF + setTimeout(0) 确保 AdBlock CSS 生效后再检测
+    // 使用双重检查：rAF + setTimeout 确保 AdBlock CSS 生效后再检测
+    // v1.3: 50ms → 150ms，适配 MutationObserver 异步隐藏在慢机上的延迟
     requestAnimationFrame(() => {
       const immediate = checkHidden();
       if (immediate.hidden) {
         finish(immediate);
       } else {
-        setTimeout(() => finish(checkHidden()), 50);
+        setTimeout(() => finish(checkHidden()), 150);
       }
     });
   });
