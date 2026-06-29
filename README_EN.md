@@ -37,28 +37,15 @@ Or use UMD directly in HTML:
 
 ## 🚀 Quick Start
 
-### Detect AdBlock in 3 Lines
-
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-const { detected, confidence } = await createDetector().detect();
-
-console.log(`AdBlock ${detected ? 'detected' : 'not detected'} — confidence: ${(confidence * 100).toFixed(0)}%`);
+createDetector().detect().then(result => {
+  console.log('AdBlock:', result.detected);
+});
 ```
 
-10 core rules are enabled by default (high coverage, low false-positive). Works out of the box.
-
-### Detection Result
-
-| Field | Description |
-|:---|:---|
-| `detected` | Whether AdBlock is detected |
-| `confidence` | Overall confidence 0–1 |
-| `blockedCount` / `totalCount` | Network probes blocked / total |
-| `baitHiddenCount` / `baitTotalCount` | Baits hidden / total |
-| `totalDuration` | Total detection time in ms |
-| `fromCache` | Whether result came from cache |
+Three lines. `result` also carries confidence, blocked resources and more when you need them.
 
 ---
 

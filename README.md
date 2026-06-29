@@ -37,28 +37,15 @@ npm install adblock-easylist-detector
 
 ## 🚀 快速上手
 
-### 3 行代码检测 AdBlock
-
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-const { detected, confidence } = await createDetector().detect();
-
-console.log(`AdBlock ${detected ? '已检测到' : '未检测到'}，置信度 ${(confidence * 100).toFixed(0)}%`);
+createDetector().detect().then(result => {
+  console.log('AdBlock:', result.detected);
+});
 ```
 
-默认启用 10 条核心规则（高覆盖、低误报），开箱即用。
-
-### 检测结果说明
-
-| 字段 | 说明 |
-|:---|:---|
-| `detected` | 是否检测到 AdBlock |
-| `confidence` | 综合置信度 0~1 |
-| `blockedCount` / `totalCount` | 网络探测被拦截数 / 总数 |
-| `baitHiddenCount` / `baitTotalCount` | 诱饵被隐藏数 / 总数 |
-| `totalDuration` | 总耗时 ms |
-| `fromCache` | 是否命中缓存 |
+三行搞定。`result` 还包含置信度、拦截详情等信息，需要时再去取。
 
 ---
 
