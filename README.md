@@ -1,5 +1,7 @@
 # adblock-easylist-detector
 
+**简体中文** | [English](./README_EN.md)
+
 > 基于 [EasyList](https://easylist.to/) 规则反向探测 + CSS 诱饵双重检测的轻量 AdBlock 检测插件。  
 > 支持 ESM / UMD，浏览器直接使用或通过 npm 引入。
 

@@ -1,5 +1,7 @@
 # adblock-easylist-detector
 
+[简体中文](./README.md) | **English**
+
 > Lightweight AdBlock detection using [EasyList](https://easylist.to/) reverse-probing + CSS bait element detection.  
 > Supports ESM / UMD — use via npm or directly in the browser.
 
