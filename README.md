@@ -3,6 +3,12 @@
 > 基于 EasyList 规则反向探测 + CSS 诱饵双重检测的轻量 AdBlock 检测插件。  
 > 支持 ESM / UMD，浏览器直接使用或通过 npm 引入。
 
+```ts
+import { createDetector } from 'adblock-easylist-detector';
+
+createDetector().detect().then(r => console.log('AdBlock:', r.detected));
+```
+
 ---
 
 ## ✨ 特性

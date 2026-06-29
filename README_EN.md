@@ -3,6 +3,12 @@
 > Lightweight AdBlock detection using EasyList reverse-probing + CSS bait element detection.  
 > Supports ESM / UMD — use via npm or directly in the browser.
 
+```ts
+import { createDetector } from 'adblock-easylist-detector';
+
+createDetector().detect().then(r => console.log('AdBlock:', r.detected));
+```
+
 ---
 
 ## ✨ Features
