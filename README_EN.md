@@ -6,7 +6,9 @@
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-createDetector().detect().then(r => console.log('AdBlock:', r.detected));
+createDetector()
+  .detect()
+  .then(r => console.log('AdBlock:', r.detected)); // true = blocker detected, false = clean
 ```
 
 ---
@@ -30,7 +32,7 @@ npm install adblock-easylist-detector
 Or use UMD directly in HTML:
 
 ```html
-<script src="dist/adblock-easylist-detector.umd.min.js"></script>
+<script src="https://unpkg.com/adblock-easylist-detector/dist/adblock-easylist-detector.umd.min.js"></script>
 <script>
   var d = AdblockEasylistDetector.createDetector();
   d.detect().then(function(r) {
@@ -297,20 +299,6 @@ Each rule has a confidence score (0.62–0.95). 10 core rules are active by defa
 | `resource-generator.esm.js` | ESM | Resource generator only |
 | `bait-detector.esm.js` | ESM | Bait detector only |
 | `callback.esm.js` | ESM | Callback manager only |
-
----
-
-## 🛠️ Development
-
-```bash
-npm install            # Install deps
-npm run build          # Build
-npm test               # Run tests (56 cases)
-npm run test:watch     # Watch mode
-npm run clean          # Clean output
-```
-
-Browser test page: open `test/index.html` after building (requires a local server).
 
 ---
 

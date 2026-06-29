@@ -6,7 +6,9 @@
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-createDetector().detect().then(r => console.log('AdBlock:', r.detected));
+createDetector()
+  .detect()
+  .then(r => console.log('AdBlock:', r.detected)); // true = 检测到拦截器, false = 无拦截
 ```
 
 ---
@@ -30,7 +32,7 @@ npm install adblock-easylist-detector
 或者直接在 HTML 中使用 UMD：
 
 ```html
-<script src="dist/adblock-easylist-detector.umd.min.js"></script>
+<script src="https://unpkg.com/adblock-easylist-detector/dist/adblock-easylist-detector.umd.min.js"></script>
 <script>
   var d = AdblockEasylistDetector.createDetector();
   d.detect().then(function(r) {
@@ -301,20 +303,6 @@ d.destroy(); // 清缓存 + 清回调 + 停止轮询，彻底释放
 | `resource-generator.esm.js` | ESM | 仅资源生成（按需） |
 | `bait-detector.esm.js` | ESM | 仅诱饵检测（按需） |
 | `callback.esm.js` | ESM | 仅回调管理（按需） |
-
----
-
-## 🛠️ 开发
-
-```bash
-npm install            # 安装依赖
-npm run build          # 构建
-npm test               # 运行测试（56 条）
-npm run test:watch     # 监听模式
-npm run clean          # 清理产物
-```
-
-浏览器测试页：构建后打开 `test/index.html`（需本地服务器）。
 
 ---
 
