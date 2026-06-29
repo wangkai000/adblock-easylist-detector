@@ -8,7 +8,7 @@ import { createDetector } from 'adblock-easylist-detector';
 
 createDetector()
   .detect()
-  .then(r => console.log('AdBlock:', r.detected)); // true = 检测到拦截器, false = 无拦截
+  .then((r) => console.log('AdBlock:', r.detected)); // true = 检测到拦截器, false = 无拦截
 ```
 
 ---
@@ -35,7 +35,7 @@ npm install adblock-easylist-detector
 <script src="https://unpkg.com/adblock-easylist-detector/dist/adblock-easylist-detector.umd.min.js"></script>
 <script>
   var d = AdblockEasylistDetector.createDetector();
-  d.detect().then(function(r) {
+  d.detect().then(function (r) {
     console.log('AdBlock:', r.detected);
   });
 </script>
@@ -48,9 +48,11 @@ npm install adblock-easylist-detector
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-createDetector().detect().then(result => {
-  console.log('AdBlock:', result.detected);
-});
+createDetector()
+  .detect()
+  .then((result) => {
+    console.log('AdBlock:', result.detected);
+  });
 ```
 
 三行搞定。`result` 还包含置信度、拦截详情等信息，需要时再去取。
@@ -79,9 +81,8 @@ d.setActiveRules(['pagead2-googlesyndication', 'doubleclick', 'adservice-google'
 console.log(d.getActiveRules());
 
 // 浏览全部 32 条规则，按需挑选
-d.getAllRules().forEach(r => console.log(r.id, r.description, r.confidence));
+d.getAllRules().forEach((r) => console.log(r.id, r.description, r.confidence));
 ```
-
 
 ### 回调模式
 
@@ -96,7 +97,7 @@ d.onDetect((result) => {
   }
 });
 
-await d.detect();            // 首次检测
+await d.detect(); // 首次检测
 button.onclick = () => d.detect(); // 用户操作后复测
 ```
 
@@ -160,9 +161,9 @@ const r = await d.detect();
 const d = createDetector();
 
 const controller = d.startPolling({
-  interval: 5000,           // 每隔 5 秒检测一次
-  hiddenMultiplier: 3,      // 页面隐藏时降频 3 倍
-  maxPolls: 100,            // 最多检测 100 次
+  interval: 5000, // 每隔 5 秒检测一次
+  hiddenMultiplier: 3, // 页面隐藏时降频 3 倍
+  maxPolls: 100, // 最多检测 100 次
 });
 
 // 手动触发一次即时检测
@@ -203,19 +204,19 @@ const r = await getInstance().detect();
 
 ### 细粒度配置
 
-| 选项 | 默认值 | 说明 |
-|:---|:---:|:---|
-| `timeout` | `3000` | 单条资源超时 ms |
-| `confidenceThreshold` | `0.5` | 判定阈值 0~1 |
-| `cache` | `true` | 启用缓存 |
-| `enableBait` | `true` | 启用诱饵检测 |
-| `netWeight` | `0.6` | 网络探测权重 |
-| `baitWeight` | `0.4` | 诱饵检测权重 |
-| `maxConcurrency` | `5` | 最大并发数 |
-| `category` | — | 仅测某一分类（domain / path / param / third-party）|
-| `minConfidence` | — | 仅测置信度 ≥ 此值的规则 |
-| `baitTimeout` | `200` | 诱饵检测超时 ms |
-| `debug` | `false` | 开启调试日志 |
+| 选项                  | 默认值  | 说明                                                |
+| :-------------------- | :-----: | :-------------------------------------------------- |
+| `timeout`             | `3000`  | 单条资源超时 ms                                     |
+| `confidenceThreshold` |  `0.5`  | 判定阈值 0~1                                        |
+| `cache`               | `true`  | 启用缓存                                            |
+| `enableBait`          | `true`  | 启用诱饵检测                                        |
+| `netWeight`           |  `0.6`  | 网络探测权重                                        |
+| `baitWeight`          |  `0.4`  | 诱饵检测权重                                        |
+| `maxConcurrency`      |   `5`   | 最大并发数                                          |
+| `category`            |    —    | 仅测某一分类（domain / path / param / third-party） |
+| `minConfidence`       |    —    | 仅测置信度 ≥ 此值的规则                             |
+| `baitTimeout`         |  `200`  | 诱饵检测超时 ms                                     |
+| `debug`               | `false` | 开启调试日志                                        |
 
 完整示例：
 
@@ -223,22 +224,16 @@ const r = await getInstance().detect();
 const d = createDetector({
   timeout: 4000,
   confidenceThreshold: 0.6,
-  activeRules: [
-    'pagead2-googlesyndication',
-    'pos-baidu',
-    'qzone',
-    'ads-js',
-    'ad-banner',
-  ],
+  activeRules: ['pagead2-googlesyndication', 'pos-baidu', 'qzone', 'ads-js', 'ad-banner'],
 });
 
 d.onDetect((result) => {
   if (result.detected) {
     console.warn(
       `[AdBlock] 检测到拦截器 | 置信度:${(result.confidence * 100).toFixed(0)}% ` +
-      `| 网络:${result.blockedCount}/${result.totalCount} ` +
-      `| 诱饵:${result.baitHiddenCount}/${result.baitTotalCount} ` +
-      `| 耗时:${result.totalDuration}ms`
+        `| 网络:${result.blockedCount}/${result.totalCount} ` +
+        `| 诱饵:${result.baitHiddenCount}/${result.baitTotalCount} ` +
+        `| 耗时:${result.totalDuration}ms`,
     );
   }
 });
@@ -258,12 +253,12 @@ d.destroy(); // 清缓存 + 清回调 + 停止轮询，彻底释放
 
 内置 32 条 EasyList 高命中规则，覆盖主流广告平台：
 
-| 分类 | 数量 | 代表规则 |
-|:---|:---:|:---|
-| 域名拦截 | 21 | Google AdSense、DoubleClick、Amazon、百度联盟、Tanx、腾讯广点通… |
-| 路径通配 | 7 | ads.js、ad/banner、popunder、advertisement… |
-| 查询参数 | 2 | ad_type=、ad_unit= |
-| 第三方广告 | 2 | Taboola、Outbrain |
+| 分类       | 数量 | 代表规则                                                         |
+| :--------- | :--: | :--------------------------------------------------------------- |
+| 域名拦截   |  21  | Google AdSense、DoubleClick、Amazon、百度联盟、Tanx、腾讯广点通… |
+| 路径通配   |  7   | ads.js、ad/banner、popunder、advertisement…                      |
+| 查询参数   |  2   | ad_type=、ad_unit=                                               |
+| 第三方广告 |  2   | Taboola、Outbrain                                                |
 
 每条规则带有置信度（0.62~0.95），默认启用 10 条高覆盖低误报的核心规则。
 
@@ -294,15 +289,15 @@ d.destroy(); // 清缓存 + 清回调 + 停止轮询，彻底释放
 
 ## 🏗️ 构建产物
 
-| 文件 | 格式 | 说明 |
-|:---|:---|:---|
-| `adblock-easylist-detector.esm.js` | ESM | 完整包，Tree-shakable |
-| `adblock-easylist-detector.umd.js` | UMD | 完整包，`<script>` 直接引入 |
-| `*.min.js` | ESM/UMD | 压缩版 |
-| `detector.esm.js` | ESM | 仅检测引擎（按需） |
-| `resource-generator.esm.js` | ESM | 仅资源生成（按需） |
-| `bait-detector.esm.js` | ESM | 仅诱饵检测（按需） |
-| `callback.esm.js` | ESM | 仅回调管理（按需） |
+| 文件                               | 格式    | 说明                        |
+| :--------------------------------- | :------ | :-------------------------- |
+| `adblock-easylist-detector.esm.js` | ESM     | 完整包，Tree-shakable       |
+| `adblock-easylist-detector.umd.js` | UMD     | 完整包，`<script>` 直接引入 |
+| `*.min.js`                         | ESM/UMD | 压缩版                      |
+| `detector.esm.js`                  | ESM     | 仅检测引擎（按需）          |
+| `resource-generator.esm.js`        | ESM     | 仅资源生成（按需）          |
+| `bait-detector.esm.js`             | ESM     | 仅诱饵检测（按需）          |
+| `callback.esm.js`                  | ESM     | 仅回调管理（按需）          |
 
 ---
 

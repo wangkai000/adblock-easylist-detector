@@ -23,7 +23,11 @@
  *   });
  */
 
-import { generateByRuleIds, generateByCategory, generateByConfidence } from './modules/resource-generator';
+import {
+  generateByRuleIds,
+  generateByCategory,
+  generateByConfidence,
+} from './modules/resource-generator';
 import { detect, clearCache as clearEngineCache, DetectionResult } from './modules/detector';
 import { CallbackManager, CallbackFn } from './modules/callback';
 import { BaitConfig } from './modules/bait-detector';
@@ -124,7 +128,9 @@ export interface AdblockDetector {
   /** 实例是否已销毁（只读） */
   readonly destroyed: boolean;
   /** 当前配置（只读） */
-  readonly options: Readonly<Required<Omit<DetectorOptions, 'category' | 'minConfidence' | 'baits'>> & DetectorOptions>;
+  readonly options: Readonly<
+    Required<Omit<DetectorOptions, 'category' | 'minConfidence' | 'baits'>> & DetectorOptions
+  >;
   /** 版本号 */
   readonly version: string;
   /** 启用一条规则（按 id） */
@@ -167,9 +173,15 @@ class PollingControllerImpl implements PollingController {
     this._effectiveInterval = this._interval;
   }
 
-  get running(): boolean { return this._running; }
-  get pollCount(): number { return this._pollCount; }
-  get lastResult(): DetectionResult | null { return this._lastResult; }
+  get running(): boolean {
+    return this._running;
+  }
+  get pollCount(): number {
+    return this._pollCount;
+  }
+  get lastResult(): DetectionResult | null {
+    return this._lastResult;
+  }
 
   start(): void {
     if (this._running) return;
@@ -213,19 +225,21 @@ class PollingControllerImpl implements PollingController {
   private _doCheck = async (): Promise<DetectionResult> => {
     if (this._pollCount >= this._maxPolls) {
       this.stop();
-      return this._lastResult ?? {
-        detected: false,
-        confidence: 0,
-        blockedCount: 0,
-        totalCount: 0,
-        details: [],
-        baitResults: [],
-        baitHiddenCount: 0,
-        baitTotalCount: 0,
-        totalDuration: 0,
-        fromCache: false,
-        timestamp: Date.now(),
-      };
+      return (
+        this._lastResult ?? {
+          detected: false,
+          confidence: 0,
+          blockedCount: 0,
+          totalCount: 0,
+          details: [],
+          baitResults: [],
+          baitHiddenCount: 0,
+          baitTotalCount: 0,
+          totalDuration: 0,
+          fromCache: false,
+          timestamp: Date.now(),
+        }
+      );
     }
 
     this._pollCount++;
@@ -300,7 +314,9 @@ function createDetectorInternal(
   let _lastResult: DetectionResult | null = null;
 
   return {
-    lastResult() { return _lastResult; },
+    lastResult() {
+      return _lastResult;
+    },
 
     async detect(): Promise<DetectionResult> {
       const ruleIds = opts.activeRules ?? DEFAULT_ACTIVE_RULE_IDS;
@@ -369,7 +385,7 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
   };
 
   // 规则快查 map
-  const _ruleMap = new Map(EASYLIST_RULES.map(r => [r.id, r]));
+  const _ruleMap = new Map(EASYLIST_RULES.map((r) => [r.id, r]));
 
   const internal = createDetectorInternal(_opts, callbacks, changeCallbacks, _id);
 
@@ -411,7 +427,9 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
       // 返回只读快照
       return Object.freeze({ ..._opts }) as AdblockDetector['options'];
     },
-    get destroyed() { return _destroyed; },
+    get destroyed() {
+      return _destroyed;
+    },
     version: VERSION,
 
     async detect(): Promise<DetectionResult> {
@@ -427,7 +445,9 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
       callbacks.once(fn);
       scheduleAutoDetect();
     },
-    offDetect(fn) { callbacks.off(fn); },
+    offDetect(fn) {
+      callbacks.off(fn);
+    },
 
     onDetectedChange(fn) {
       changeCallbacks.on(fn);
@@ -486,7 +506,7 @@ export function createDetector(options: DetectorOptions = {}): AdblockDetector {
 
     setActiveRules(ids: string[]) {
       _opts.activeRules.length = 0;
-      _opts.activeRules.push(...ids.filter(id => _ruleMap.has(id)));
+      _opts.activeRules.push(...ids.filter((id) => _ruleMap.has(id)));
       debug('setActiveRules', _opts.activeRules.length);
     },
 

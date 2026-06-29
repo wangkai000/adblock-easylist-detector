@@ -58,7 +58,7 @@ function buildResources(rules: EasyListRule[]): TestResource[] {
  */
 export function generateByRuleIds(ruleIds: string[] = DEFAULT_ACTIVE_RULE_IDS): TestResource[] {
   const idSet = new Set(ruleIds);
-  const filtered = EASYLIST_RULES.filter(r => idSet.has(r.id));
+  const filtered = EASYLIST_RULES.filter((r) => idSet.has(r.id));
   return buildResources(filtered);
 }
 
@@ -76,21 +76,14 @@ export function generateByCategory(
   category: EasyListRule['category'],
   ruleIds?: string[],
 ): TestResource[] {
-  const source = ruleIds
-    ? EASYLIST_RULES.filter(r => ruleIds.includes(r.id))
-    : EASYLIST_RULES;
-  return buildResources(source.filter(r => r.category === category));
+  const source = ruleIds ? EASYLIST_RULES.filter((r) => ruleIds.includes(r.id)) : EASYLIST_RULES;
+  return buildResources(source.filter((r) => r.category === category));
 }
 
 /**
  * 按最低置信度 + 可选 ruleIds 筛选生成
  */
-export function generateByConfidence(
-  minConfidence: number,
-  ruleIds?: string[],
-): TestResource[] {
-  const source = ruleIds
-    ? EASYLIST_RULES.filter(r => ruleIds.includes(r.id))
-    : EASYLIST_RULES;
-  return buildResources(source.filter(r => r.confidence >= minConfidence));
+export function generateByConfidence(minConfidence: number, ruleIds?: string[]): TestResource[] {
+  const source = ruleIds ? EASYLIST_RULES.filter((r) => ruleIds.includes(r.id)) : EASYLIST_RULES;
+  return buildResources(source.filter((r) => r.confidence >= minConfidence));
 }

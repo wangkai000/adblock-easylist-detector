@@ -53,7 +53,11 @@ describe('createDetector', () => {
 
     // 阈值高于实际 confidence → detected=false
     const highThreshold = rLow.confidence + 0.01;
-    const strict = createDetector({ timeout: 500, confidenceThreshold: highThreshold, enableBait: false });
+    const strict = createDetector({
+      timeout: 500,
+      confidenceThreshold: highThreshold,
+      enableBait: false,
+    });
     const rStrict = await strict.detect();
     expect(rStrict.detected).toBe(false);
   }, 20000);
@@ -190,7 +194,11 @@ describe('createDetector', () => {
   });
 
   it('activeRules 影响 detect 的 totalCount', async () => {
-    const d = createDetector({ timeout: 500, enableBait: false, activeRules: ['pagead2-googlesyndication'] });
+    const d = createDetector({
+      timeout: 500,
+      enableBait: false,
+      activeRules: ['pagead2-googlesyndication'],
+    });
     const r = await d.detect();
     expect(r.totalCount).toBe(1);
   }, 10000);

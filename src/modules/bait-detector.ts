@@ -28,7 +28,7 @@ export const DEFAULT_BAITS: BaitConfig[] = [
     className: 'ad-banner ad_leaderboard',
     id: 'ad-container',
     innerHTML: '<span class="ad_text">Advertisement</span>',
-    confidence: 0.90,
+    confidence: 0.9,
     description: '通用广告 banner 容器',
   },
   {
@@ -73,13 +73,14 @@ export const DEFAULT_BAITS: BaitConfig[] = [
     description: 'Google Ad 复合诱饵',
   },
   {
-    className: 'pub_300x250 pub_300x250m pub_728x90 text-ad textAd text_ad text_ads text-ads text-ad-links',
+    className:
+      'pub_300x250 pub_300x250m pub_728x90 text-ad textAd text_ad text_ads text-ads text-ad-links',
     confidence: 0.86,
     description: '通用广告尺寸 + 文字广告 class 组合',
   },
   {
     className: 'banner-ad-container adunit',
-    confidence: 0.80,
+    confidence: 0.8,
     description: '通用 banner 广告容器组合',
   },
   {
@@ -131,21 +132,26 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
       const refEl = document.createElement('div');
       refEl.className = bait.className;
       if (bait.id) refEl.id = bait.id;
-      refEl.style.cssText = 'position:absolute!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;pointer-events:none!important;';
+      refEl.style.cssText =
+        'position:absolute!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;pointer-events:none!important;';
       document.body.appendChild(refEl);
       const refStyle = window.getComputedStyle(refEl);
       if (refStyle.display === 'none' || refStyle.visibility === 'hidden') {
         // 页面自身有隐藏该 class/id 的规则 → 该诱饵不可靠，标记跳过
         skipThisBait = true;
       }
-      try { refEl.remove(); } catch { /* */ }
+      try {
+        refEl.remove();
+      } catch {
+        /* */
+      }
     }
     if (skipThisBait) {
       resolve({
         baitIndex: index,
         hidden: false,
         reason: 'none',
-        confidence: 0,  // 权重降为0，不参与置信度计算
+        confidence: 0, // 权重降为0，不参与置信度计算
         description: bait.description + ' [skipped: page has hidden rule for this class]',
       });
       return;
@@ -157,7 +163,8 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
     if (bait.innerHTML) el.innerHTML = bait.innerHTML;
 
     // 设置不可见样式，避免影响页面布局
-    el.style.cssText = 'position:absolute!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;pointer-events:none!important;';
+    el.style.cssText =
+      'position:absolute!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;pointer-events:none!important;';
 
     document.body.appendChild(el);
 
@@ -166,22 +173,46 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
     const checkHidden = (): BaitResult => {
       // 检查元素是否还在 DOM 中
       if (!el.parentElement) {
-        return { baitIndex: index, hidden: true, reason: 'not_in_dom', confidence: bait.confidence, description: bait.description };
+        return {
+          baitIndex: index,
+          hidden: true,
+          reason: 'not_in_dom',
+          confidence: bait.confidence,
+          description: bait.description,
+        };
       }
 
       const style = window.getComputedStyle(el);
 
       if (style.display === 'none') {
-        return { baitIndex: index, hidden: true, reason: 'display_none', confidence: bait.confidence, description: bait.description };
+        return {
+          baitIndex: index,
+          hidden: true,
+          reason: 'display_none',
+          confidence: bait.confidence,
+          description: bait.description,
+        };
       }
 
       if (style.visibility === 'hidden' || style.opacity === '0') {
-        return { baitIndex: index, hidden: true, reason: 'visibility_hidden', confidence: bait.confidence, description: bait.description };
+        return {
+          baitIndex: index,
+          hidden: true,
+          reason: 'visibility_hidden',
+          confidence: bait.confidence,
+          description: bait.description,
+        };
       }
 
       // 检查是否被压缩为 0 尺寸（某些 AdBlock 会这样做）
       if (parseInt(style.height) === 0 && parseInt(style.width) === 0) {
-        return { baitIndex: index, hidden: true, reason: 'zero_size', confidence: bait.confidence, description: bait.description };
+        return {
+          baitIndex: index,
+          hidden: true,
+          reason: 'zero_size',
+          confidence: bait.confidence,
+          description: bait.description,
+        };
       }
 
       // 检查子元素是否被隐藏（AdBlock 可能只隐藏子元素如 ins.adsbygoogle）
@@ -189,25 +220,48 @@ function probeBait(bait: BaitConfig, index: number, timeout: number): Promise<Ba
         const child = el.children[i] as HTMLElement;
         const childStyle = window.getComputedStyle(child);
         if (childStyle.display === 'none' || childStyle.visibility === 'hidden') {
-          return { baitIndex: index, hidden: true, reason: 'display_none', confidence: bait.confidence, description: bait.description };
+          return {
+            baitIndex: index,
+            hidden: true,
+            reason: 'display_none',
+            confidence: bait.confidence,
+            description: bait.description,
+          };
         }
       }
 
-      return { baitIndex: index, hidden: false, reason: 'none', confidence: bait.confidence, description: bait.description };
+      return {
+        baitIndex: index,
+        hidden: false,
+        reason: 'none',
+        confidence: bait.confidence,
+        description: bait.description,
+      };
     };
 
     const finish = (result: BaitResult) => {
       if (resolved) return;
       resolved = true;
       clearTimeout(timer);
-      try { el.remove(); } catch { try { document.body.removeChild(el); } catch { /* */ } }
+      try {
+        el.remove();
+      } catch {
+        try {
+          document.body.removeChild(el);
+        } catch {
+          /* */
+        }
+      }
       resolve(result);
     };
 
     // 超时兜底
-    const timer = setTimeout(() => {
-      finish(checkHidden());
-    }, Math.min(timeout, 200));
+    const timer = setTimeout(
+      () => {
+        finish(checkHidden());
+      },
+      Math.min(timeout, 200),
+    );
 
     // 使用双重检查：rAF + setTimeout 确保 AdBlock CSS 生效后再检测
     // v1.3: 50ms → 150ms，适配 MutationObserver 异步隐藏在慢机上的延迟

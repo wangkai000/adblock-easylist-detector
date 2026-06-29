@@ -75,7 +75,11 @@ function readCache(instanceId: string): DetectionResult | null {
     if (!raw) return null;
     const entry: CacheEntry = JSON.parse(raw);
     if (Date.now() - entry.savedAt > CACHE_TTL) {
-      try { sessionStorage.removeItem(getCacheKey(instanceId)); } catch { /* quota or disabled */ }
+      try {
+        sessionStorage.removeItem(getCacheKey(instanceId));
+      } catch {
+        /* quota or disabled */
+      }
       return null;
     }
     return { ...entry.result, fromCache: true };
@@ -89,7 +93,9 @@ function writeCache(result: DetectionResult, instanceId: string): void {
     if (typeof sessionStorage === 'undefined') return;
     const entry: CacheEntry = { result: { ...result }, savedAt: Date.now() };
     sessionStorage.setItem(getCacheKey(instanceId), JSON.stringify(entry));
-  } catch { /* quota exceeded or storage disabled */ }
+  } catch {
+    /* quota exceeded or storage disabled */
+  }
 }
 
 export function clearCache(instanceId?: string): void {
@@ -107,7 +113,9 @@ export function clearCache(instanceId?: string): void {
         }
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** @deprecated 保留旧签名兼容，但建议用 detect options 中的 instanceId */
@@ -162,7 +170,11 @@ export function probeResource(resource: TestResource, timeout: number): Promise<
       clearTimeout(timer);
       // 统一执行清理
       for (const fn of cleanupFns) {
-        try { fn(); } catch { /* best effort */ }
+        try {
+          fn();
+        } catch {
+          /* best effort */
+        }
       }
       cleanupFns.length = 0;
       resolve({
@@ -186,7 +198,11 @@ export function probeResource(resource: TestResource, timeout: number): Promise<
 
         // 注册 cleanup：abort + clear fetchTimer
         cleanupFns.push(() => {
-          try { controller.abort(); } catch { /* */ }
+          try {
+            controller.abort();
+          } catch {
+            /* */
+          }
           clearTimeout(fetchTimer);
         });
 
@@ -196,9 +212,12 @@ export function probeResource(resource: TestResource, timeout: number): Promise<
             // no-cors 成功只代表请求发出了，不代表没被拦截
             // 用 Image 二次验证
             const img = new Image();
-            const imgTimer = setTimeout(() => {
-              safeDone(true, 'TIMEOUT_SECONDARY');
-            }, Math.min(timeout, 1500));
+            const imgTimer = setTimeout(
+              () => {
+                safeDone(true, 'TIMEOUT_SECONDARY');
+              },
+              Math.min(timeout, 1500),
+            );
 
             // 注册 Image cleanup
             cleanupFns.push(() => {
@@ -216,7 +235,12 @@ export function probeResource(resource: TestResource, timeout: number): Promise<
             };
             // 追加二次随机参数防缓存命中
             const cacheBust = resource.url.includes('?') ? '&' : '?';
-            img.src = resource.url + cacheBust + '_cb2=' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+            img.src =
+              resource.url +
+              cacheBust +
+              '_cb2=' +
+              Date.now().toString(36) +
+              Math.random().toString(36).slice(2, 8);
           })
           .catch((err: unknown) => {
             clearTimeout(fetchTimer);
@@ -229,17 +253,29 @@ export function probeResource(resource: TestResource, timeout: number): Promise<
         el.async = true;
 
         // 注册 script cleanup
-        cleanupFns.push(() => { try { document.head.removeChild(el); } catch { /* */ } });
+        cleanupFns.push(() => {
+          try {
+            document.head.removeChild(el);
+          } catch {
+            /* */
+          }
+        });
 
-        el.onload = () => { safeDone(false); };
-        el.onerror = () => { safeDone(true, 'SCRIPT_BLOCKED'); };
+        el.onload = () => {
+          safeDone(false);
+        };
+        el.onerror = () => {
+          safeDone(true, 'SCRIPT_BLOCKED');
+        };
         document.head.appendChild(el);
       } else {
         // image
         const img = new Image();
 
         // 注册 image cleanup
-        cleanupFns.push(() => { img.src = ''; });
+        cleanupFns.push(() => {
+          img.src = '';
+        });
 
         img.onload = () => safeDone(false);
         img.onerror = () => safeDone(true, 'IMAGE_BLOCKED');
@@ -320,9 +356,10 @@ export async function detect(
   }
 
   const startTotal = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const getElapsed = () => typeof performance !== 'undefined'
-    ? Math.round(performance.now() - startTotal)
-    : Math.round(Date.now() - startTotal);
+  const getElapsed = () =>
+    typeof performance !== 'undefined'
+      ? Math.round(performance.now() - startTotal)
+      : Math.round(Date.now() - startTotal);
 
   // P1-7: 并发控制
   const concurrency = options.maxConcurrency ?? 5;
@@ -331,7 +368,7 @@ export async function detect(
   // 并行执行网络探测和诱饵检测
   const [details, baitResults] = await Promise.all([
     promiseAllLimit(probeTasks, concurrency),
-    (options.enableBait !== false)
+    options.enableBait !== false
       ? detectByBait(options.baits, options.baitTimeout)
       : Promise.resolve([]),
   ]);

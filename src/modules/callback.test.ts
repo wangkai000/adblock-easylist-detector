@@ -80,7 +80,9 @@ describe('CallbackManager', () => {
   });
 
   it('回调抛错不影响其他回调', () => {
-    const errorFn = vi.fn(() => { throw new Error('boom'); });
+    const errorFn = vi.fn(() => {
+      throw new Error('boom');
+    });
     const normalFn = vi.fn();
     cb.on(errorFn);
     cb.on(normalFn);

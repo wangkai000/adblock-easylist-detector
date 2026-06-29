@@ -5,3 +5,5 @@ dist
 *.min.js.map
 package-lock.json
 LICENSE
+.codebuddy
+coverage

@@ -8,7 +8,7 @@ import { createDetector } from 'adblock-easylist-detector';
 
 createDetector()
   .detect()
-  .then(r => console.log('AdBlock:', r.detected)); // true = blocker detected, false = clean
+  .then((r) => console.log('AdBlock:', r.detected)); // true = blocker detected, false = clean
 ```
 
 ---
@@ -35,7 +35,7 @@ Or use UMD directly in HTML:
 <script src="https://unpkg.com/adblock-easylist-detector/dist/adblock-easylist-detector.umd.min.js"></script>
 <script>
   var d = AdblockEasylistDetector.createDetector();
-  d.detect().then(function(r) {
+  d.detect().then(function (r) {
     console.log('AdBlock:', r.detected);
   });
 </script>
@@ -48,9 +48,11 @@ Or use UMD directly in HTML:
 ```ts
 import { createDetector } from 'adblock-easylist-detector';
 
-createDetector().detect().then(result => {
-  console.log('AdBlock:', result.detected);
-});
+createDetector()
+  .detect()
+  .then((result) => {
+    console.log('AdBlock:', result.detected);
+  });
 ```
 
 Three lines. `result` also carries confidence, blocked resources and more when you need them.
@@ -79,7 +81,7 @@ d.setActiveRules(['pagead2-googlesyndication', 'doubleclick', 'adservice-google'
 console.log(d.getActiveRules());
 
 // Browse all 32 rules
-d.getAllRules().forEach(r => console.log(r.id, r.description, r.confidence));
+d.getAllRules().forEach((r) => console.log(r.id, r.description, r.confidence));
 ```
 
 ### Callback Mode
@@ -95,7 +97,7 @@ d.onDetect((result) => {
   }
 });
 
-await d.detect();            // Initial check
+await d.detect(); // Initial check
 button.onclick = () => d.detect(); // Re-check on user action
 ```
 
@@ -156,8 +158,8 @@ Auto-detect on an interval with Page Visibility API integration (pauses when the
 const d = createDetector();
 
 const controller = d.startPolling({
-  interval: 5000,           // Check every 5s
-  hiddenMultiplier: 3,      // Slow down 3x when hidden
+  interval: 5000, // Check every 5s
+  hiddenMultiplier: 3, // Slow down 3x when hidden
   maxPolls: 100,
 });
 
@@ -199,19 +201,19 @@ const r = await getInstance().detect();
 
 ### Full Configuration
 
-| Option | Default | Description |
-|:---|:---:|:---|
-| `timeout` | `3000` | Per-resource timeout in ms |
-| `confidenceThreshold` | `0.5` | Detection threshold 0–1 |
-| `cache` | `true` | Enable sessionStorage cache |
-| `enableBait` | `true` | Enable CSS bait detection |
-| `netWeight` | `0.6` | Network probe weight |
-| `baitWeight` | `0.4` | Bait detection weight |
-| `maxConcurrency` | `5` | Max concurrent probes |
-| `category` | — | Test only one category (domain / path / param / third-party) |
-| `minConfidence` | — | Test only rules with confidence ≥ this value |
-| `baitTimeout` | `200` | Bait detection timeout in ms |
-| `debug` | `false` | Enable debug logging |
+| Option                | Default | Description                                                  |
+| :-------------------- | :-----: | :----------------------------------------------------------- |
+| `timeout`             | `3000`  | Per-resource timeout in ms                                   |
+| `confidenceThreshold` |  `0.5`  | Detection threshold 0–1                                      |
+| `cache`               | `true`  | Enable sessionStorage cache                                  |
+| `enableBait`          | `true`  | Enable CSS bait detection                                    |
+| `netWeight`           |  `0.6`  | Network probe weight                                         |
+| `baitWeight`          |  `0.4`  | Bait detection weight                                        |
+| `maxConcurrency`      |   `5`   | Max concurrent probes                                        |
+| `category`            |    —    | Test only one category (domain / path / param / third-party) |
+| `minConfidence`       |    —    | Test only rules with confidence ≥ this value                 |
+| `baitTimeout`         |  `200`  | Bait detection timeout in ms                                 |
+| `debug`               | `false` | Enable debug logging                                         |
 
 Complete example:
 
@@ -219,22 +221,16 @@ Complete example:
 const d = createDetector({
   timeout: 4000,
   confidenceThreshold: 0.6,
-  activeRules: [
-    'pagead2-googlesyndication',
-    'doubleclick',
-    'ads-js',
-    'ad-banner',
-    'outbrain',
-  ],
+  activeRules: ['pagead2-googlesyndication', 'doubleclick', 'ads-js', 'ad-banner', 'outbrain'],
 });
 
 d.onDetect((result) => {
   if (result.detected) {
     console.warn(
       `[AdBlock] Detected | confidence:${(result.confidence * 100).toFixed(0)}% ` +
-      `| network:${result.blockedCount}/${result.totalCount} ` +
-      `| bait:${result.baitHiddenCount}/${result.baitTotalCount} ` +
-      `| time:${result.totalDuration}ms`
+        `| network:${result.blockedCount}/${result.totalCount} ` +
+        `| bait:${result.baitHiddenCount}/${result.baitTotalCount} ` +
+        `| time:${result.totalDuration}ms`,
     );
   }
 });
@@ -254,12 +250,12 @@ d.destroy(); // Clears cache + callbacks + stops polling
 
 32 EasyList high-hit rules covering major ad platforms:
 
-| Category | Count | Examples |
-|:---|:---:|:---|
-| Domain | 21 | Google AdSense, DoubleClick, Amazon, Baidu, Tanx, Tencent… |
-| Path | 7 | ads.js, ad/banner, popunder, advertisement… |
-| Query Param | 2 | ad_type=, ad_unit= |
-| Third-party | 2 | Taboola, Outbrain |
+| Category    | Count | Examples                                                   |
+| :---------- | :---: | :--------------------------------------------------------- |
+| Domain      |  21   | Google AdSense, DoubleClick, Amazon, Baidu, Tanx, Tencent… |
+| Path        |   7   | ads.js, ad/banner, popunder, advertisement…                |
+| Query Param |   2   | ad_type=, ad_unit=                                         |
+| Third-party |   2   | Taboola, Outbrain                                          |
 
 Each rule has a confidence score (0.62–0.95). 10 core rules are active by default.
 
@@ -290,15 +286,15 @@ Each rule has a confidence score (0.62–0.95). 10 core rules are active by defa
 
 ## 🏗️ Build Artifacts
 
-| File | Format | Description |
-|:---|:---|:---|
-| `adblock-easylist-detector.esm.js` | ESM | Full bundle, tree-shakable |
-| `adblock-easylist-detector.umd.js` | UMD | Full bundle, `<script>` ready |
-| `*.min.js` | ESM/UMD | Minified |
-| `detector.esm.js` | ESM | Detection engine only |
-| `resource-generator.esm.js` | ESM | Resource generator only |
-| `bait-detector.esm.js` | ESM | Bait detector only |
-| `callback.esm.js` | ESM | Callback manager only |
+| File                               | Format  | Description                   |
+| :--------------------------------- | :------ | :---------------------------- |
+| `adblock-easylist-detector.esm.js` | ESM     | Full bundle, tree-shakable    |
+| `adblock-easylist-detector.umd.js` | UMD     | Full bundle, `<script>` ready |
+| `*.min.js`                         | ESM/UMD | Minified                      |
+| `detector.esm.js`                  | ESM     | Detection engine only         |
+| `resource-generator.esm.js`        | ESM     | Resource generator only       |
+| `bait-detector.esm.js`             | ESM     | Bait detector only            |
+| `callback.esm.js`                  | ESM     | Callback manager only         |
 
 ---
 

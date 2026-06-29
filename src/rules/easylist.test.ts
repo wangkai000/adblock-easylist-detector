@@ -7,7 +7,7 @@ describe('EASYLIST_RULES', () => {
   });
 
   it('每条规则含 id 且唯一', () => {
-    const ids = EASYLIST_RULES.map(r => r.id);
+    const ids = EASYLIST_RULES.map((r) => r.id);
     expect(new Set(ids).size).toBe(32);
     for (const rule of EASYLIST_RULES) {
       expect(rule.id).toBeTruthy();
@@ -29,7 +29,7 @@ describe('EASYLIST_RULES', () => {
   });
 
   it('覆盖 4 种分类', () => {
-    const categories = new Set(EASYLIST_RULES.map(r => r.category));
+    const categories = new Set(EASYLIST_RULES.map((r) => r.category));
     expect(categories.has('domain')).toBe(true);
     expect(categories.has('path')).toBe(true);
     expect(categories.has('param')).toBe(true);
@@ -51,7 +51,7 @@ describe('DEFAULT_ACTIVE_RULE_IDS', () => {
   });
 
   it('所有默认 id 存在于 EASYLIST_RULES 中', () => {
-    const allIds = new Set(EASYLIST_RULES.map(r => r.id));
+    const allIds = new Set(EASYLIST_RULES.map((r) => r.id));
     for (const id of DEFAULT_ACTIVE_RULE_IDS) {
       expect(allIds.has(id)).toBe(true);
     }
